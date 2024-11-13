@@ -109,8 +109,7 @@ install-senzing() {
   ls -tlc /tmp/
   hdiutil attach /tmp/senzingsdk.dmg
   sudo mkdir -p /opt/senzing/
-  is-major-version-greater-than-3 && SENZING_PATH="er" || SENZING_PATH="g2"
-  sudo cp -R /Volumes/SenzingSDK/senzing/"$SENZING_PATH" /opt/senzing
+  sudo cp -R /Volumes/SenzingSDK/senzing/er /opt/senzing
 
 }
 
