@@ -8,27 +8,27 @@ inputs:
     default: "senzingsdk-runtime"
   senzingsdk-version:
     description: Version of Senzing SDK to install
-    default: "production-v3"
+    default: "staging-v4"
 
 runs:
   using: composite
   steps:
     - if: runner.os == 'Linux'
       name: Run on Linux
-      uses: senzing-factory/github-action-install-senzing-sdk/linux@1-skern
+      uses: senzing-factory/github-action-install-senzing-sdk/linux@v1
       with:
         senzingsdk-version: ${{ inputs.senzingsdk-version }}
         packages-to-install: ${{ inputs.packages-to-install }}
 
     - if: runner.os == 'macOS'
       name: Run on macOS
-      uses: senzing-factory/github-action-install-senzing-sdk/darwin@1-skern
+      uses: senzing-factory/github-action-install-senzing-sdk/darwin@v1
       with:
         senzingsdk-version: ${{ inputs.senzingsdk-version }}
 
     - if: runner.os == 'Windows'
       name: Run on Windows
-      uses: senzing-factory/github-action-install-senzing-sdk/windows@1-skern
+      uses: senzing-factory/github-action-install-senzing-sdk/windows@v1
       with:
         senzingsdk-version: ${{ inputs.senzingsdk-version }}
 
