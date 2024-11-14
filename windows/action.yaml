@@ -1,0 +1,24 @@
+# windows/action.yaml
+name: Install Senzing SDK - windows
+description: Install Senzing SDK on the windows platform.
+author: support@senzing.com
+
+inputs:
+  senzingsdk-version:
+    description: Version of Senzing SDK to install
+    required: true
+
+runs:
+  using: composite
+  steps:
+    # Install latest staging or production image.
+
+    - env:
+        SENZING_INSTALL_VERSION: ${{ inputs.senzingsdk-version }}
+      name: Install Senzing SDK
+      shell: bash
+      run: $GITHUB_ACTION_PATH/install-senzing.sh
+
+branding:
+  icon: download
+  color: green

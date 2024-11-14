@@ -1,0 +1,23 @@
+name: Install Senzing SDK - darwin
+description: Install Senzing SDK on the darwin/macOS platform.
+author: support@senzing.com
+
+inputs:
+  senzingsdk-version:
+    description: Version of Senzing SDK to install
+    required: true
+
+runs:
+  using: composite
+  steps:
+    # Install latest staging or production image.
+
+    - env:
+        SENZING_INSTALL_VERSION: ${{ inputs.senzingsdk-version }}
+      name: Install Senzing SDK
+      shell: bash
+      run: ${{ github.action_path }}/install-senzing.sh
+
+branding:
+  icon: download
+  color: green
