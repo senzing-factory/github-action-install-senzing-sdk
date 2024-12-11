@@ -12,7 +12,6 @@ inputs:
     description: Optional repository override for senzing packages outside of staging and production. Linux only.
   senzingsdk-version:
     description: Version of Senzing SDK to install
-    default: "production-v4"
 
 runs:
   using: composite
