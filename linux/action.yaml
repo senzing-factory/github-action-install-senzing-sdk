@@ -1,0 +1,33 @@
+name: Install Senzing SDK - linux
+description: Install Senzing SDK on the linux platform.
+author: support@senzing.com
+
+inputs:
+  packages-to-install:
+    description: Space separated list of Senzing packages to install. Linux only.
+    default: "senzingsdk-runtime"
+  senzingsdk-repository-package:
+    description: Optional repository package override for senzing packages outside of staging and production. Linux only.
+  senzingsdk-repository-path:
+    description: Optional repository override for senzing packages outside of staging and production. Linux only.
+  senzingsdk-version:
+    description: Version of Senzing SDK to install
+    default: "production-v4"
+
+runs:
+  using: composite
+  steps:
+    # Install staging, production or versioned release.
+    - env:
+        PACKAGES_TO_INSTALL: ${{ inputs.packages-to-install }}
+        SENZING_ACCEPT_EULA: I_ACCEPT_THE_SENZING_EULA
+        SENZING_INSTALL_VERSION: ${{ inputs.senzingsdk-version }}
+        SENZINGSDK_REPOSITORY_PACKAGE: ${{ inputs.senzingsdk-repository-package }}
+        SENZINGSDK_REPOSITORY_PATH: ${{ inputs.senzingsdk-repository-path }}
+      name: Install Senzing SDK
+      shell: bash
+      run: ${{ github.action_path }}/install-senzing.sh
+
+branding:
+  icon: download
+  color: green
