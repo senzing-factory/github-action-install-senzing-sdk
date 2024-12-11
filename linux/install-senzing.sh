@@ -154,7 +154,7 @@ is-major-version-greater-than-3() {
 ############################################
 restrict-major-version() {
 
-  senzing_packages=$(apt list | grep senzing | cut -d '/' -f 1 | grep -v "data" | grep -v "staging")
+  senzing_packages=$(apt list | grep senzing | cut -d '/' -f 1 | grep -v "data" | grep -v "staging" | grep -v "repo")
   echo "[INFO] senzing packages: $senzing_packages"
 
   for package in $senzing_packages
@@ -167,8 +167,8 @@ restrict-major-version() {
     echo "Pin-Priority: 999" | sudo tee -a "$preferences_file"
   done
 
-  echo "[INFO] sudo apt update -qq"
-  sudo apt update -qq
+  echo "[INFO] sudo apt update -qq  > /dev/null"
+  sudo apt update -qq  > /dev/null
 
 }
 
@@ -182,10 +182,10 @@ install-senzing-repository() {
 
   echo "[INFO] wget -qO /tmp/senzingrepo.deb INSTALL_REPO_REDACTED"
   wget -qO /tmp/senzingrepo.deb "$INSTALL_REPO"
-  echo "[INFO] sudo apt-get -y -qq install /tmp/senzingrepo.deb"
-  sudo apt-get -yqq install /tmp/senzingrepo.deb
-  echo "[INFO] sudo apt-get -qq update"
-  sudo apt-get update
+  echo "[INFO] sudo apt-get -y -qq install /tmp/senzingrepo.deb > /dev/null"
+  sudo apt-get -yqq install /tmp/senzingrepo.deb  > /dev/null
+  echo "[INFO] sudo apt-get -qq update > /dev/null"
+  sudo apt-get update > /dev/null 
   rm /tmp/senzingrepo.deb
 
 }
@@ -199,11 +199,11 @@ install-senzing-repository() {
 install-senzingsdk() {
   
   restrict-major-version
-  echo "[INFO] sudo apt list | grep senzing"
-  sudo apt list | grep senzing
-  echo "[INFO] sudo --preserve-env apt-get -y -qq install $SENZING_PACKAGES"
+  echo "[INFO] sudo apt list | grep senzing | grep -v repo"
+  sudo apt list | grep senzing | grep -v repo
+  echo "[INFO] sudo --preserve-env apt-get -y -qq install $SENZING_PACKAGES > /dev/null"
   # shellcheck disable=SC2086
-  sudo --preserve-env apt-get -y -qq install $SENZING_PACKAGES
+  sudo --preserve-env apt-get -y -qq install $SENZING_PACKAGES > /dev/null
 
 }
 
@@ -217,8 +217,8 @@ install-senzingsdk() {
 ############################################
 verify-installation() {
 
-  echo "[INFO] sudo apt list --installed | grep senzing"
-  sudo apt list --installed | grep senzing
+  echo "[INFO] sudo apt list --installed | grep senzing | grep -v repo"
+  sudo apt list --installed | grep senzing | grep -v repo
 
   echo "[INFO] verify senzing installation"
   if [ ! -f "/opt/senzing/er/szBuildVersion.json" ]; then
