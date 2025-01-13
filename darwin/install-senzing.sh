@@ -84,7 +84,7 @@ is-major-version-greater-than-3() {
 ############################################
 determine-latest-dmg-for-major-version() {
 
-  aws s3 ls $SENZINGSDK_URI --recursive --no-sign-request | grep -o -E '[^ ]+.dmg$' > /tmp/staging-versions
+  aws s3 ls "$SENZINGSDK_URI" --recursive --no-sign-request | grep -o -E '[^ ]+.dmg$' > /tmp/staging-versions
   latest_staging_version=$(< /tmp/staging-versions grep "_$MAJOR_VERSION" | sort -r | head -n 1)
   rm /tmp/staging-versions
   echo "[INFO] latest staging version is: $latest_staging_version"
