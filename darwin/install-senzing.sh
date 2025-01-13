@@ -23,7 +23,7 @@ configure-vars() {
     MAJOR_VERSION=4
     export MAJOR_VERSION
     SENZINGSDK_URI="s3://$SENZINGSDK_REPOSITORY_PATH/"
-    SENZINGSDK_URL="https://$SENZINGSDK_REPOSITORY_PATH.s3.amazonaws.com"
+    SENZINGSDK_URL="https://$SENZINGSDK_REPOSITORY_PATH.s3.amazonaws.com/"
 
   elif [[ $SENZING_INSTALL_VERSION =~ "staging" ]]; then
 
