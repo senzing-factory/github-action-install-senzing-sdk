@@ -12,18 +12,24 @@ configure-vars() {
   if [[ $SENZING_INSTALL_VERSION =~ "production" ]]; then
 
     echo "[INFO] install senzingsdk from production"
+    get-generic-major-version
+    is-major-version-greater-than-3
     SENZINGSDK_URI="s3://public-read-access/Windows_SDK/"
     SENZINGSDK_URL="https://public-read-access.s3.amazonaws.com/Windows_SDK"
 
   elif [ -z "$SENZING_INSTALL_VERSION" ] && [ -n "$SENZINGSDK_REPOSITORY_PATH" ]; then
 
     echo "[INFO] install senzingsdk from supplied repository"
+    MAJOR_VERSION=4
+    export MAJOR_VERSION
     SENZINGSDK_URI="s3://$SENZINGSDK_REPOSITORY_PATH/"
     SENZINGSDK_URL="https://$SENZINGSDK_REPOSITORY_PATH.s3.amazonaws.com"
 
   elif [[ $SENZING_INSTALL_VERSION =~ "staging" ]]; then
 
     echo "[INFO] install senzingsdk from staging"
+    get-generic-major-version
+    is-major-version-greater-than-3
     SENZINGSDK_URI="s3://public-read-access/staging/"
     SENZINGSDK_URL="https://public-read-access.s3.amazonaws.com/staging"
 
@@ -77,9 +83,6 @@ is-major-version-greater-than-3() {
 #   SENZINGSDK_URI
 ############################################
 determine-latest-zip-for-major-version() {
-
-  get-generic-major-version
-  is-major-version-greater-than-3
 
   aws s3 ls $SENZINGSDK_URI --recursive --no-sign-request --region us-east-1 | grep -o -E '[^ ]+.zip$' > /tmp/staging-versions
   latest_staging_version=$(< /tmp/staging-versions grep "_$MAJOR_VERSION" | sort -r | head -n 1 | grep -o '/.*')
