@@ -18,7 +18,7 @@ runs:
   steps:
     - if: runner.os == 'Linux'
       name: Run on Linux
-      uses: senzing-factory/github-action-install-senzing-sdk/linux@v1
+      uses: senzing-factory/github-action-install-senzing-sdk/linux@v2
       with:
         packages-to-install: ${{ inputs.packages-to-install }}
         senzingsdk-repository-package: ${{ inputs.senzingsdk-repository-package }}
@@ -27,14 +27,14 @@ runs:
 
     - if: runner.os == 'macOS'
       name: Run on macOS
-      uses: senzing-factory/github-action-install-senzing-sdk/darwin@4-skern
+      uses: senzing-factory/github-action-install-senzing-sdk/darwin@v2
       with:
         senzingsdk-repository-path: ${{ inputs.senzingsdk-repository-path }}
         senzingsdk-version: ${{ inputs.senzingsdk-version }}
 
     - if: runner.os == 'Windows'
       name: Run on Windows
-      uses: senzing-factory/github-action-install-senzing-sdk/windows@4-skern
+      uses: senzing-factory/github-action-install-senzing-sdk/windows@v2
       with:
         senzingsdk-repository-path: ${{ inputs.senzingsdk-repository-path }}
         senzingsdk-version: ${{ inputs.senzingsdk-version }}
