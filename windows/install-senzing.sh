@@ -15,6 +15,12 @@ configure-vars() {
     SENZINGSDK_URI="s3://public-read-access/Windows_SDK/"
     SENZINGSDK_URL="https://public-read-access.s3.amazonaws.com/Windows_SDK"
 
+  elif [ -z "$SENZING_INSTALL_VERSION" ] && [ -n "$SENZINGSDK_REPOSITORY_PATH" ]; then
+
+    echo "[INFO] install senzingsdk from supplied repository"
+    SENZINGSDK_URI="s3://$SENZINGSDK_REPOSITORY_PATH/"
+    SENZINGSDK_URL="https://$SENZINGSDK_REPOSITORY_PATH.s3.amazonaws.com"
+
   elif [[ $SENZING_INSTALL_VERSION =~ "staging" ]]; then
 
     echo "[INFO] install senzingsdk from staging"
@@ -91,7 +97,7 @@ determine-latest-zip-for-major-version() {
 ############################################
 download-zip() {
 
-  echo "[INFO] curl --output senzingsdk.zip $SENZINGSDK_ZIP_URL"
+  echo "[INFO] curl --output senzingsdk.zip SENZINGSDK_ZIP_URL_REDACTED"
   curl --output senzingsdk.zip "$SENZINGSDK_ZIP_URL"
 
 }

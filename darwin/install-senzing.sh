@@ -15,6 +15,12 @@ configure-vars() {
     SENZINGSDK_URI="s3://public-read-access/MacOS_SDK/"
     SENZINGSDK_URL="https://public-read-access.s3.amazonaws.com/MacOS_SDK"
 
+  elif [ -z "$SENZING_INSTALL_VERSION" ] && [ -n "$SENZINGSDK_REPOSITORY_PATH" ]; then
+
+    echo "[INFO] install senzingsdk from supplied repository"
+    SENZINGSDK_URI="s3://$SENZINGSDK_REPOSITORY_PATH/"
+    SENZINGSDK_URL="https://$SENZINGSDK_REPOSITORY_PATH.s3.amazonaws.com"
+
   elif [[ $SENZING_INSTALL_VERSION =~ "staging" ]]; then
 
     echo "[INFO] install senzingsdk from staging"
@@ -91,7 +97,7 @@ determine-latest-dmg-for-major-version() {
 ############################################
 download-dmg() {
 
-  echo "[INFO] curl --output /tmp/senzingsdk.dmg $SENZINGSDK_DMG_URL"
+  echo "[INFO] curl --output /tmp/senzingsdk.dmg SENZINGSDK_DMG_URL_REDACTED"
   curl --output /tmp/senzingsdk.dmg "$SENZINGSDK_DMG_URL"
 
 }
