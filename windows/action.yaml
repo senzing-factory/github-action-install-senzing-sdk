@@ -4,6 +4,8 @@ description: Install Senzing SDK on the windows platform.
 author: support@senzing.com
 
 inputs:
+  senzingsdk-repository-path:
+    description: Optional repository override for senzing packages outside of staging and production.
   senzingsdk-version:
     description: Version of Senzing SDK to install
     required: true
@@ -15,6 +17,7 @@ runs:
 
     - env:
         SENZING_INSTALL_VERSION: ${{ inputs.senzingsdk-version }}
+        SENZINGSDK_REPOSITORY_PATH: ${{ inputs.senzingsdk-repository-path }}
       name: Install Senzing SDK
       shell: bash
       run: $GITHUB_ACTION_PATH/install-senzing.sh

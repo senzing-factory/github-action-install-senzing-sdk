@@ -12,12 +12,24 @@ configure-vars() {
   if [[ $SENZING_INSTALL_VERSION =~ "production" ]]; then
 
     echo "[INFO] install senzingsdk from production"
+    get-generic-major-version
+    is-major-version-greater-than-3
     SENZINGSDK_URI="s3://public-read-access/MacOS_SDK/"
     SENZINGSDK_URL="https://public-read-access.s3.amazonaws.com/MacOS_SDK"
+
+  elif [ -z "$SENZING_INSTALL_VERSION" ] && [ -n "$SENZINGSDK_REPOSITORY_PATH" ]; then
+
+    echo "[INFO] install senzingsdk from supplied repository"
+    MAJOR_VERSION=4
+    export MAJOR_VERSION
+    SENZINGSDK_URI="s3://$SENZINGSDK_REPOSITORY_PATH/"
+    SENZINGSDK_URL="https://$SENZINGSDK_REPOSITORY_PATH.s3.amazonaws.com/"
 
   elif [[ $SENZING_INSTALL_VERSION =~ "staging" ]]; then
 
     echo "[INFO] install senzingsdk from staging"
+    get-generic-major-version
+    is-major-version-greater-than-3
     SENZINGSDK_URI="s3://public-read-access/staging/"
     SENZINGSDK_URL="https://public-read-access.s3.amazonaws.com/staging"
 
@@ -72,11 +84,8 @@ is-major-version-greater-than-3() {
 ############################################
 determine-latest-dmg-for-major-version() {
 
-  get-generic-major-version
-  is-major-version-greater-than-3
-
-  aws s3 ls $SENZINGSDK_URI --recursive --no-sign-request | grep -o -E '[^ ]+.dmg$' > /tmp/staging-versions
-  latest_staging_version=$(< /tmp/staging-versions grep "_$MAJOR_VERSION" | sort -r | head -n 1 | grep -o '/.*')
+  aws s3 ls "$SENZINGSDK_URI" --recursive --no-sign-request | grep -o -E '[^ ]+.dmg$' > /tmp/staging-versions
+  latest_staging_version=$(< /tmp/staging-versions grep "_$MAJOR_VERSION" | sort -r | head -n 1)
   rm /tmp/staging-versions
   echo "[INFO] latest staging version is: $latest_staging_version"
 
@@ -91,7 +100,7 @@ determine-latest-dmg-for-major-version() {
 ############################################
 download-dmg() {
 
-  echo "[INFO] curl --output /tmp/senzingsdk.dmg $SENZINGSDK_DMG_URL"
+  echo "[INFO] curl --output /tmp/senzingsdk.dmg SENZINGSDK_DMG_URL_REDACTED"
   curl --output /tmp/senzingsdk.dmg "$SENZINGSDK_DMG_URL"
 
 }
@@ -138,7 +147,6 @@ verify-installation() {
 # Main
 ############################################
 
-echo "[INFO] senzing version to install is: $SENZING_INSTALL_VERSION"
 configure-vars
 determine-latest-dmg-for-major-version
 download-dmg
