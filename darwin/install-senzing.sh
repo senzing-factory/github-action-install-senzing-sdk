@@ -147,7 +147,6 @@ verify-installation() {
 # Main
 ############################################
 
-echo "[INFO] senzing version to install is: $SENZING_INSTALL_VERSION"
 configure-vars
 determine-latest-dmg-for-major-version
 download-dmg

@@ -84,7 +84,9 @@ is-major-version-greater-than-3() {
 ############################################
 determine-latest-zip-for-major-version() {
 
+  echo "[INFO] aws s3 ls $SENZINGSDK_URI --recursive --no-sign-request --region us-east-1 | grep -o -E '[^ ]+.zip$' > /tmp/staging-versions"
   aws s3 ls $SENZINGSDK_URI --recursive --no-sign-request --region us-east-1 | grep -o -E '[^ ]+.zip$' > /tmp/staging-versions
+  cat /tmp/staging-versions
   latest_staging_version=$(< /tmp/staging-versions grep "_$MAJOR_VERSION" | sort -r | head -n 1 | grep -o '/.*')
   rm /tmp/staging-versions
   echo "[INFO] latest staging version is: $latest_staging_version"
@@ -140,7 +142,6 @@ verify-installation() {
 # Main
 ############################################
 
-echo "[INFO] senzingsdk version to install is: $SENZING_INSTALL_VERSION"
 configure-vars
 determine-latest-zip-for-major-version
 download-zip
