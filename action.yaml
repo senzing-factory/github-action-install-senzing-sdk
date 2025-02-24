@@ -27,14 +27,14 @@ runs:
 
     - if: runner.os == 'macOS'
       name: Run on macOS
-      uses: senzing-factory/github-action-install-senzing-sdk/darwin@v2
+      uses: senzing-factory/github-action-install-senzing-sdk/darwin@6-skern
       with:
         senzingsdk-repository-path: ${{ inputs.senzingsdk-repository-path }}
         senzingsdk-version: ${{ inputs.senzingsdk-version }}
 
     - if: runner.os == 'Windows'
       name: Run on Windows
-      uses: senzing-factory/github-action-install-senzing-sdk/windows@v2
+      uses: senzing-factory/github-action-install-senzing-sdk/windows@6-skern
       with:
         senzingsdk-repository-path: ${{ inputs.senzingsdk-repository-path }}
         senzingsdk-version: ${{ inputs.senzingsdk-version }}
