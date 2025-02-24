@@ -111,7 +111,7 @@ download-zip() {
 ############################################
 install-senzingsdk() {
 
-  7z x -y -o"C:\Program Files" senzingsdk.zip 
+  7z x -y -o"$HOME" senzingsdk.zip 
 
 }
 
@@ -126,12 +126,12 @@ install-senzingsdk() {
 verify-installation() {
 
   echo "[INFO] verify senzingsdk installation"
-  if [ ! -f "/c/Program Files/Senzing/er/szBuildVersion.json" ]; then
-    echo "[ERROR] /c/Program Files/Senzing/er/szBuildVersion.json not found."
+  if [ ! -f "$HOME/Senzing/er/szBuildVersion.json" ]; then
+    echo "[ERROR] $HOME/Senzing/er/szBuildVersion.json not found."
     exit 1
   else
-    echo "[INFO] cat /c/Program Files/Senzing/er/szBuildVersion.json"
-    cat "/c/Program Files/Senzing/er/szBuildVersion.json"
+    echo "[INFO] cat $HOME/Senzing/er/szBuildVersion.json"
+    cat "$HOME/Senzing/er/szBuildVersion.json"
   fi
 
 }
