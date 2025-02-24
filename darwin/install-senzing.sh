@@ -119,8 +119,6 @@ install-senzing() {
   hdiutil attach /tmp/senzingsdk.dmg
   sudo mkdir -p "$HOME"/senzing/er
   sudo cp -R /Volumes/SenzingSDK/senzing/er "$HOME"/senzing/
-  echo "[INFO] home is $HOME"
-  ls -tlc "$HOME"/senzing/er
 
 }
 
