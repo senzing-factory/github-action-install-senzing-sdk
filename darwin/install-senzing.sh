@@ -134,10 +134,10 @@ verify-installation() {
 
   echo "[INFO] verify senzing installation"
   if [ ! -f "$HOME"/senzing/er/szBuildVersion.json ]; then
-    echo "[ERROR] "$HOME"/senzing/er/szBuildVersion.json not found."
+    echo "[ERROR] $HOME/senzing/er/szBuildVersion.json not found."
     exit 1
   else
-    echo "[INFO] cat "$HOME"/senzing/er/szBuildVersion.json"
+    echo "[INFO] cat $HOME/senzing/er/szBuildVersion.json"
     cat "$HOME"/senzing/er/szBuildVersion.json
   fi
 
