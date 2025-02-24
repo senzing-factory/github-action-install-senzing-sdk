@@ -120,7 +120,7 @@ install-senzing() {
   sudo mkdir -p "$HOME"/senzing/er
   sudo cp -R /Volumes/SenzingSDK/senzing/er "$HOME"/senzing/er
   echo "[INFO] home is $HOME"
-  ls -tlc "$HOME"/senzing
+  ls -tlc "$HOME"/senzing/er
 
 }
 
