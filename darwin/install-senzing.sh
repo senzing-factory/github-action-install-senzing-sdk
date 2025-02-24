@@ -118,7 +118,7 @@ install-senzing() {
   ls -tlc /tmp/
   hdiutil attach /tmp/senzingsdk.dmg
   sudo mkdir -p /opt/senzing/
-  sudo cp -R /Volumes/SenzingSDK/senzing/er /opt/senzing
+  sudo cp -R /Volumes/SenzingSDK/senzing/er "$HOME"/senzing
 
 }
 
@@ -133,12 +133,12 @@ install-senzing() {
 verify-installation() {
 
   echo "[INFO] verify senzing installation"
-  if [ ! -f /opt/senzing/er/szBuildVersion.json ]; then
-    echo "[ERROR] /opt/senzing/er/szBuildVersion.json not found."
+  if [ ! -f "$HOME"/senzing/er/szBuildVersion.json ]; then
+    echo "[ERROR] "$HOME"/senzing/er/szBuildVersion.json not found."
     exit 1
   else
-    echo "[INFO] cat /opt/senzing/er/szBuildVersion.json"
-    cat /opt/senzing/er/szBuildVersion.json
+    echo "[INFO] cat "$HOME"/senzing/er/szBuildVersion.json"
+    cat "$HOME"/senzing/er/szBuildVersion.json
   fi
 
 }
