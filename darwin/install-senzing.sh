@@ -117,8 +117,8 @@ install-senzing() {
 
   ls -tlc /tmp/
   hdiutil attach /tmp/senzingsdk.dmg
-  sudo mkdir -p "$HOME"/senzing/er
-  sudo cp -R /Volumes/SenzingSDK/senzing/er "$HOME"/senzing/
+  sudo mkdir -p "$HOME"/senzing
+  sudo cp -R /Volumes/SenzingSDK/senzing/* "$HOME"/senzing/
 
 }
 
