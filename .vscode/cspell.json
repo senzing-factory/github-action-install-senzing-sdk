@@ -1,0 +1,16 @@
+{
+  "version": "0.2",
+  "language": "en",
+  "words": [
+    "CCLA",
+    "CODEOWNER",
+    "ICLA",
+    "Senzing",
+    "senzingdata",
+    "senzingrepo",
+    "senzingsdk",
+    "senzingstagingrepo",
+    "stackoverflow"
+  ],
+  "ignorePaths": [".git/**"]
+}
