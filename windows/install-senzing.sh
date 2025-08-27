@@ -30,8 +30,8 @@ configure-vars() {
     echo "[INFO] install senzingsdk from staging"
     get-generic-major-version
     is-major-version-greater-than-3
-    SENZINGSDK_URI="s3://public-read-access/staging/"
-    SENZINGSDK_URL="https://public-read-access.s3.amazonaws.com/staging"
+    SENZINGSDK_URI="s3://senzing-staging-win/"
+    SENZINGSDK_URL="https://senzing-staging-win.s3.amazonaws.com"
 
   else
     echo "[ERROR] senzingsdk install version $SENZING_INSTALL_VERSION is unsupported"
