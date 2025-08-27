@@ -15,7 +15,7 @@ configure-vars() {
     get-generic-major-version
     is-major-version-greater-than-3
     SENZINGSDK_URI="s3://public-read-access/MacOS_SDK/"
-    SENZINGSDK_URL="https://public-read-access.s3.amazonaws.com/MacOS_SDK"
+    SENZINGSDK_URL="https://public-read-access.s3.amazonaws.com/MacOS_SDK/"
 
   elif [ -z "$SENZING_INSTALL_VERSION" ] && [ -n "$SENZINGSDK_REPOSITORY_PATH" ]; then
 
@@ -31,7 +31,7 @@ configure-vars() {
     get-generic-major-version
     is-major-version-greater-than-3
     SENZINGSDK_URI="s3://senzing-staging-osx/"
-    SENZINGSDK_URL="https://senzing-staging-osx.s3.amazonaws.com"
+    SENZINGSDK_URL="https://senzing-staging-osx.s3.amazonaws.com/"
 
   else
     echo "[ERROR] senzingsdk install version $SENZING_INSTALL_VERSION is unsupported"
