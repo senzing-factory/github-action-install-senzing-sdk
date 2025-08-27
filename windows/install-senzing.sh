@@ -15,7 +15,7 @@ configure-vars() {
     get-generic-major-version
     is-major-version-greater-than-3
     SENZINGSDK_URI="s3://public-read-access/Windows_SDK/"
-    SENZINGSDK_URL="https://public-read-access.s3.amazonaws.com/Windows_SDK"
+    SENZINGSDK_URL="https://public-read-access.s3.amazonaws.com/"
 
   elif [ -z "$SENZING_INSTALL_VERSION" ] && [ -n "$SENZINGSDK_REPOSITORY_PATH" ]; then
 
@@ -31,7 +31,7 @@ configure-vars() {
     get-generic-major-version
     is-major-version-greater-than-3
     SENZINGSDK_URI="s3://senzing-staging-win/"
-    SENZINGSDK_URL="https://senzing-staging-win.s3.amazonaws.com"
+    SENZINGSDK_URL="https://senzing-staging-win.s3.amazonaws.com/"
 
   else
     echo "[ERROR] senzingsdk install version $SENZING_INSTALL_VERSION is unsupported"
