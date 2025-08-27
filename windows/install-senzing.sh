@@ -101,6 +101,7 @@ determine-latest-zip-for-major-version() {
 download-zip() {
 
   echo "[INFO] curl --output senzingsdk.zip SENZINGSDK_ZIP_URL_REDACTED"
+  echo "[INFO] curl --output senzingsdk.zip $SENZINGSDK_ZIP_URL"
   curl --output senzingsdk.zip "$SENZINGSDK_ZIP_URL"
 
 }
