@@ -36,7 +36,7 @@ configure-vars() {
     SENZINGSDK_URL="https://senzing-staging-osx.s3.amazonaws.com/"
     determine-latest-dmg-for-major-version
 
-  elif [[ "$SENZING_INSTALL_VERSION" =~ ^[0-9] ]]; then
+  elif [[ "$SENZING_INSTALL_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]{5}$ ]]; then
 
     echo "[INFO] install senzingsdk version $SENZING_INSTALL_VERSION from staging"
     MAJOR_VERSION="${SENZING_INSTALL_VERSION:0:1}"

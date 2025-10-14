@@ -33,7 +33,7 @@ configure-vars() {
     SENZINGSDK_URI="s3://senzing-staging-win/"
     SENZINGSDK_URL="https://senzing-staging-win.s3.amazonaws.com/"
 
-  elif [[ "$SENZING_INSTALL_VERSION" =~ ^[0-9] ]]; then
+  elif [[ "$SENZING_INSTALL_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]{5}$ ]]; then
 
     echo "[INFO] install senzingsdk version $SENZING_INSTALL_VERSION from staging"
     MAJOR_VERSION="${SENZING_INSTALL_VERSION:0:1}"
