@@ -102,7 +102,7 @@ determine-latest-dmg-for-major-version() {
   rm /tmp/staging-versions
   echo "[INFO] latest staging version is: $latest_staging_version"
 
-  SENZINGSDK_DMG_URL="$SENZINGSDK_URL"senzingsdk_"$latest_staging_version".dmg
+  SENZINGSDK_DMG_URL="$SENZINGSDK_URL$latest_staging_version"
 
 }
 
@@ -115,7 +115,7 @@ determine-latest-dmg-for-major-version() {
 ############################################
 determine-dmg-for-version() {
 
-  SENZINGSDK_DMG_URL="$SENZINGSDK_URL$SENZING_INSTALL_VERSION"
+  SENZINGSDK_DMG_URL="$SENZINGSDK_URL"senzingsdk_"$SENZING_INSTALL_VERSION".dmg
 
 }
 
