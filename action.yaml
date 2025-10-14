@@ -34,7 +34,7 @@ runs:
 
     - if: runner.os == 'Windows'
       name: Run on Windows
-      uses: senzing-factory/github-action-install-senzing-sdk/windows@v3
+      uses: senzing-factory/github-action-install-senzing-sdk/windows@10-skern
       with:
         senzingsdk-repository-path: ${{ inputs.senzingsdk-repository-path }}
         senzingsdk-version: ${{ inputs.senzingsdk-version }}

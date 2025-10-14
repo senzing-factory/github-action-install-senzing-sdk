@@ -33,6 +33,16 @@ configure-vars() {
     SENZINGSDK_URI="s3://senzing-staging-win/"
     SENZINGSDK_URL="https://senzing-staging-win.s3.amazonaws.com/"
 
+  elif [[ "$SENZING_INSTALL_VERSION" =~ ^[0-9] ]]; then
+
+    echo "[INFO] install senzingsdk version $SENZING_INSTALL_VERSION from staging"
+    MAJOR_VERSION="${SENZING_INSTALL_VERSION:0:1}"
+    export MAJOR_VERSION
+    is-major-version-greater-than-3
+    SENZINGSDK_URI="s3://senzing-staging-win/"
+    SENZINGSDK_URL="https://senzing-staging-win.s3.amazonaws.com/"
+    determine-zip-for-version
+
   else
     echo "[ERROR] senzingsdk install version $SENZING_INSTALL_VERSION is unsupported"
     exit 1
@@ -90,6 +100,19 @@ determine-latest-zip-for-major-version() {
   echo "[INFO] latest staging version is: $latest_staging_version"
 
   SENZINGSDK_ZIP_URL="$SENZINGSDK_URL$latest_staging_version"
+
+}
+
+############################################
+# determine-zip-for-version
+# GLOBALS:
+#   SENZING_INSTALL_VERSION
+#     one of: production-v<X>, staging-v<X>
+#   SENZINGSDK_URI
+############################################
+determine-zip-for-version() {
+
+  SENZINGSDK_ZIP_URL="$SENZINGSDK_URL"SenzingSDK_"$latest_staging_version".zip
 
 }
 
