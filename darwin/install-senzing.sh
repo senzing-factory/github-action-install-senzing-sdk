@@ -47,8 +47,15 @@ configure-vars() {
     determine-dmg-for-version
 
   else
-    echo "[ERROR] senzingsdk install version $SENZING_INSTALL_VERSION is unsupported"
-    exit 1
+    echo "[INFO] install senzingsdk version $SENZING_INSTALL_VERSION from staging"
+    MAJOR_VERSION="${SENZING_INSTALL_VERSION:0:1}"
+    export MAJOR_VERSION
+    is-major-version-greater-than-3
+    SENZINGSDK_URI="s3://senzing-staging-osx/"
+    SENZINGSDK_URL="https://senzing-staging-osx.s3.amazonaws.com/"
+    determine-dmg-for-version
+    #echo "[ERROR] senzingsdk install version $SENZING_INSTALL_VERSION is unsupported"
+    #exit 1
   fi 
 
 }
