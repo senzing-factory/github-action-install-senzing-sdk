@@ -16,6 +16,7 @@ configure-vars() {
     is-major-version-greater-than-3
     SENZINGSDK_URI="s3://public-read-access/Windows_SDK/"
     SENZINGSDK_URL="https://public-read-access.s3.amazonaws.com/"
+    determine-latest-zip-for-major-version
 
   elif [ -z "$SENZING_INSTALL_VERSION" ] && [ -n "$SENZINGSDK_REPOSITORY_PATH" ]; then
 
@@ -24,6 +25,7 @@ configure-vars() {
     export MAJOR_VERSION
     SENZINGSDK_URI="s3://$SENZINGSDK_REPOSITORY_PATH/"
     SENZINGSDK_URL="https://$SENZINGSDK_REPOSITORY_PATH.s3.amazonaws.com/"
+    determine-latest-zip-for-major-version
 
   elif [[ $SENZING_INSTALL_VERSION =~ "staging" ]]; then
 
@@ -32,6 +34,7 @@ configure-vars() {
     is-major-version-greater-than-3
     SENZINGSDK_URI="s3://senzing-staging-win/"
     SENZINGSDK_URL="https://senzing-staging-win.s3.amazonaws.com/"
+    determine-latest-zip-for-major-version
 
   elif [[ "$SENZING_INSTALL_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]{5}$ ]]; then
 
@@ -164,7 +167,6 @@ verify-installation() {
 ############################################
 
 configure-vars
-determine-latest-zip-for-major-version
 download-zip
 install-senzingsdk
 verify-installation
