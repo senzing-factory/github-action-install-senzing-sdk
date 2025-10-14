@@ -126,7 +126,7 @@ determine-dmg-for-version() {
 ############################################
 download-dmg() {
 
-  echo "[INFO] curl --output /tmp/senzingsdk.dmg $SENZINGSDK_DMG_URL"
+  echo "[INFO] curl --output /tmp/senzingsdk.dmg SENZINGSDK_DMG_URL_REDACTED"
   curl --output /tmp/senzingsdk.dmg "$SENZINGSDK_DMG_URL"
 
 }
