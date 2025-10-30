@@ -6,6 +6,8 @@ inputs:
   packages-to-install:
     description: Space separated list of Senzing packages to install. Linux only.
     default: "senzingsdk-runtime"
+  senzingsdk-repository:
+    description: Used for semantic version installs only, staging or production.
   senzingsdk-repository-package:
     description: Optional repository package override for senzing packages outside of staging and production. Linux only.
   senzingsdk-repository-path:
@@ -18,9 +20,10 @@ runs:
   steps:
     - if: runner.os == 'Linux'
       name: Run on Linux
-      uses: senzing-factory/github-action-install-senzing-sdk/linux@v3
+      uses: senzing-factory/github-action-install-senzing-sdk/linux@18-skern
       with:
         packages-to-install: ${{ inputs.packages-to-install }}
+        senzingsdk-repository: ${{ inputs.senzingsdk-repository }}
         senzingsdk-repository-package: ${{ inputs.senzingsdk-repository-package }}
         senzingsdk-repository-path: ${{ inputs.senzingsdk-repository-path }}
         senzingsdk-version: ${{ inputs.senzingsdk-version }}
@@ -29,6 +32,7 @@ runs:
       name: Run on macOS
       uses: senzing-factory/github-action-install-senzing-sdk/darwin@v3
       with:
+        senzingsdk-repository: ${{ inputs.senzingsdk-repository }}
         senzingsdk-repository-path: ${{ inputs.senzingsdk-repository-path }}
         senzingsdk-version: ${{ inputs.senzingsdk-version }}
 
@@ -36,6 +40,7 @@ runs:
       name: Run on Windows
       uses: senzing-factory/github-action-install-senzing-sdk/windows@v3
       with:
+        senzingsdk-repository: ${{ inputs.senzingsdk-repository }}
         senzingsdk-repository-path: ${{ inputs.senzingsdk-repository-path }}
         senzingsdk-version: ${{ inputs.senzingsdk-version }}
 

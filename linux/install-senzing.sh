@@ -68,7 +68,13 @@ configure-vars() {
     echo "[INFO] install $PACKAGES_TO_INSTALL semantic version with build number"
     get-semantic-major-version
     is-major-version-greater-than-3
-    INSTALL_REPO="$PROD_REPO_V4_AND_ABOVE"
+    REPO="${SENZINGSDK_REPOSITORY:-staging}"
+    echo "[INFO] install senzingsdk version $SENZING_INSTALL_VERSION from $REPO"
+    if [[ "$REPO" == "production" ]]; then
+      INSTALL_REPO="$PROD_REPO_V4_AND_ABOVE"
+    elif [[ "$REPO" == "staging" ]]; then
+      INSTALL_REPO="$STAGING_REPO_V4_AND_ABOVE"
+    fi
     IFS=" " read -r -a packages <<< "$PACKAGES_TO_INSTALL"
     for package in "${packages[@]}"
     do

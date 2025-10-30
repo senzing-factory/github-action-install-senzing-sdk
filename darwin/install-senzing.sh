@@ -9,13 +9,18 @@ set -e
 ############################################
 configure-vars() {
 
+  PRODUCTION_URI="s3://public-read-access/MacOS_SDK/"
+  PRODUCTION_URL="https://public-read-access.s3.amazonaws.com/"
+  STAGING_URI="s3://senzing-staging-osx/"
+  STAGING_URL="https://senzing-staging-osx.s3.amazonaws.com/"
+
   if [[ "$SENZING_INSTALL_VERSION" =~ "production" ]]; then
 
     echo "[INFO] install senzingsdk from production"
     get-generic-major-version
     is-major-version-greater-than-3
-    SENZINGSDK_URI="s3://public-read-access/MacOS_SDK/"
-    SENZINGSDK_URL="https://public-read-access.s3.amazonaws.com/"
+    SENZINGSDK_URI="$PRODUCTION_URI"
+    SENZINGSDK_URL="$PRODUCTION_URL"
     determine-latest-dmg-for-major-version
 
   elif [ -z "$SENZING_INSTALL_VERSION" ] && [ -n "$SENZINGSDK_REPOSITORY_PATH" ]; then
@@ -32,18 +37,24 @@ configure-vars() {
     echo "[INFO] install senzingsdk from staging"
     get-generic-major-version
     is-major-version-greater-than-3
-    SENZINGSDK_URI="s3://senzing-staging-osx/"
-    SENZINGSDK_URL="https://senzing-staging-osx.s3.amazonaws.com/"
+    SENZINGSDK_URI="$STAGING_URI"
+    SENZINGSDK_URL="$STAGING_URL"
     determine-latest-dmg-for-major-version
 
   elif [[ "$SENZING_INSTALL_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]{5}$ ]]; then
 
-    echo "[INFO] install senzingsdk version $SENZING_INSTALL_VERSION from staging"
+    REPO="${SENZINGSDK_REPOSITORY:-staging}"
+    echo "[INFO] install senzingsdk version $SENZING_INSTALL_VERSION from $REPO"
+    if [[ "$REPO" == "production" ]]; then
+      SENZINGSDK_URI="$PRODUCTION_URI"
+      SENZINGSDK_URL="$PRODUCTION_URL"
+    elif [[ "$REPO" == "staging" ]]; then
+      SENZINGSDK_URI="$STAGING_URI"
+      SENZINGSDK_URL="$STAGING_URL"
+    fi
     MAJOR_VERSION="${SENZING_INSTALL_VERSION:0:1}"
     export MAJOR_VERSION
     is-major-version-greater-than-3
-    SENZINGSDK_URI="s3://senzing-staging-osx/"
-    SENZINGSDK_URL="https://senzing-staging-osx.s3.amazonaws.com/"
     determine-dmg-for-version
 
   else
