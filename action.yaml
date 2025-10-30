@@ -20,7 +20,7 @@ runs:
   steps:
     - if: runner.os == 'Linux'
       name: Run on Linux
-      uses: senzing-factory/github-action-install-senzing-sdk/linux@18-skern
+      uses: senzing-factory/github-action-install-senzing-sdk/linux@v3
       with:
         packages-to-install: ${{ inputs.packages-to-install }}
         senzingsdk-repository: ${{ inputs.senzingsdk-repository }}
