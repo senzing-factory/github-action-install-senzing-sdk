@@ -6,6 +6,8 @@ inputs:
   packages-to-install:
     description: Space separated list of Senzing packages to install. Linux only.
     default: "senzingsdk-runtime"
+  senzingsdk-repository:
+    description: Used for semantic version installs only, staging or production.
   senzingsdk-repository-package:
     description: Optional repository package override for senzing packages outside of staging and production. Linux only.
   senzingsdk-repository-path:
@@ -21,6 +23,7 @@ runs:
         PACKAGES_TO_INSTALL: ${{ inputs.packages-to-install }}
         SENZING_ACCEPT_EULA: I_ACCEPT_THE_SENZING_EULA
         SENZING_INSTALL_VERSION: ${{ inputs.senzingsdk-version }}
+        SENZINGSDK_REPOSITORY: ${{ inputs.senzingsdk-repository }}
         SENZINGSDK_REPOSITORY_PACKAGE: ${{ inputs.senzingsdk-repository-package }}
         SENZINGSDK_REPOSITORY_PATH: ${{ inputs.senzingsdk-repository-path }}
       name: Install Senzing SDK
