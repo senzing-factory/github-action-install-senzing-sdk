@@ -13,7 +13,5 @@
     "senzingstagingrepo",
     "stackoverflow"
   ],
-  "ignorePaths": [
-    ".git/**"
-  ]
+  "ignorePaths": [".git/**"]
 }
