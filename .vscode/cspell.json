@@ -6,11 +6,14 @@
     "CODEOWNER",
     "ICLA",
     "Senzing",
+    "esbenp",
     "senzingdata",
     "senzingrepo",
     "senzingsdk",
     "senzingstagingrepo",
     "stackoverflow"
   ],
-  "ignorePaths": [".git/**"]
+  "ignorePaths": [
+    ".git/**"
+  ]
 }
