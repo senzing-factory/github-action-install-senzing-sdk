@@ -9,8 +9,8 @@ set -e
 ############################################
 configure-vars() {
 
-  PRODUCTION_URI="s3://public-read-access/MacOS_SDK/"
-  PRODUCTION_URL="https://public-read-access.s3.amazonaws.com/"
+  PRODUCTION_URI="s3://senzing-production-osx/"
+  PRODUCTION_URL="https://senzing-production-osx.s3.amazonaws.com/"
   STAGING_URI="s3://senzing-staging-osx/"
   STAGING_URL="https://senzing-staging-osx.s3.amazonaws.com/"
 
