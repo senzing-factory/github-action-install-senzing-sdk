@@ -9,8 +9,8 @@ set -e
 ############################################
 configure-vars() {
 
-  PRODUCTION_URI="s3://public-read-access/Windows_SDK/"
-  PRODUCTION_URL="https://public-read-access.s3.amazonaws.com/"
+  PRODUCTION_URI="s3://senzing-production-win/"
+  PRODUCTION_URL="https://senzing-production-win.s3.amazonaws.com/"
   STAGING_URI="s3://senzing-staging-win/"
   STAGING_URL="https://senzing-staging-win.s3.amazonaws.com/"
 
