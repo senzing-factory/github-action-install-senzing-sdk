@@ -4,9 +4,11 @@
   "words": [
     "CCLA",
     "CODEOWNER",
-    "ICLA",
-    "Senzing",
+    "cooldown",
     "esbenp",
+    "ICLA",
+    "kernelsam",
+    "Senzing",
     "senzingdata",
     "senzingrepo",
     "senzingsdk",
