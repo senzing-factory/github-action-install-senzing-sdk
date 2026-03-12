@@ -1,0 +1,82 @@
+name: Test install scripts
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+permissions: {}
+
+jobs:
+  test-linux:
+    name: "Linux: ${{ matrix.senzingsdk-version }}"
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        senzingsdk-version: [production-v4, staging-v4, "4.2.1"]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Run install script
+        env:
+          PACKAGES_TO_INSTALL: senzingsdk-runtime
+          SENZING_ACCEPT_EULA: I_ACCEPT_THE_SENZING_EULA
+          SENZING_INSTALL_VERSION: ${{ matrix.senzingsdk-version }}
+        run: bash linux/install-senzing.sh
+
+  test-macos:
+    name: "macOS: ${{ matrix.senzingsdk-version }}"
+    permissions:
+      contents: read
+    runs-on: macos-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        senzingsdk-version: [production-v4, staging-v4, "4.2.1"]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Run install script
+        env:
+          SENZING_INSTALL_VERSION: ${{ matrix.senzingsdk-version }}
+        run: bash darwin/install-senzing.sh
+
+  test-windows:
+    name: "Windows: ${{ matrix.senzingsdk-version }}"
+    permissions:
+      contents: read
+    runs-on: windows-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        senzingsdk-version: [production-v4, staging-v4, "4.2.1"]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Run install script
+        env:
+          SENZING_INSTALL_VERSION: ${{ matrix.senzingsdk-version }}
+        shell: bash
+        run: bash windows/install-senzing.sh

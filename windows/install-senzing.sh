@@ -1,11 +1,15 @@
 #!/usr/bin/env bash
-set -e
+set -eo pipefail
+
+# Clean up temp files on exit
+trap 'rm -f /tmp/staging-versions senzingsdk.zip' EXIT
 
 ############################################
 # configure-vars
 # GLOBALS:
 #   SENZING_INSTALL_VERSION
 #     one of: production-v<X>, staging-v<X>
+#             X.Y.Z, X.Y.Z.ABCDE
 ############################################
 configure-vars() {
 
@@ -14,68 +18,60 @@ configure-vars() {
   STAGING_URI="s3://senzing-staging-win/"
   STAGING_URL="https://senzing-staging-win.s3.amazonaws.com/"
 
-  if [[ $SENZING_INSTALL_VERSION =~ "production" ]]; then
-
-    echo "[INFO] install senzingsdk from production"
-    get-generic-major-version
-    is-major-version-greater-than-3
-    SENZINGSDK_URI="$PRODUCTION_URI"
-    SENZINGSDK_URL="$PRODUCTION_URL"
-    determine-latest-zip-for-major-version
-
-  elif [ -z "$SENZING_INSTALL_VERSION" ] && [ -n "$SENZINGSDK_REPOSITORY_PATH" ]; then
+  # Phase 1: Determine repository
+  if [ -n "$SENZINGSDK_REPOSITORY_PATH" ]; then
 
     echo "[INFO] install senzingsdk from supplied repository"
-    MAJOR_VERSION=4
-    export MAJOR_VERSION
     SENZINGSDK_URI="s3://$SENZINGSDK_REPOSITORY_PATH/"
     SENZINGSDK_URL="https://$SENZINGSDK_REPOSITORY_PATH.s3.amazonaws.com/"
-    determine-latest-zip-for-major-version
 
-  elif [[ $SENZING_INSTALL_VERSION =~ "staging" ]]; then
+  elif [[ "$SENZING_INSTALL_VERSION" =~ ^production-v[0-9]+$ ]]; then
+
+    echo "[INFO] install senzingsdk from production"
+    SENZINGSDK_URI="$PRODUCTION_URI"
+    SENZINGSDK_URL="$PRODUCTION_URL"
+
+  elif [[ "$SENZING_INSTALL_VERSION" =~ ^staging-v[0-9]+$ ]]; then
 
     echo "[INFO] install senzingsdk from staging"
-    get-generic-major-version
-    is-major-version-greater-than-3
     SENZINGSDK_URI="$STAGING_URI"
     SENZINGSDK_URL="$STAGING_URL"
-    determine-latest-zip-for-major-version
 
-  elif [[ "$SENZING_INSTALL_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]{5}$ ]]; then
+  elif [[ "$SENZING_INSTALL_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+ ]]; then
 
     REPO="${SENZINGSDK_REPOSITORY:-staging}"
     echo "[INFO] install senzingsdk version $SENZING_INSTALL_VERSION from $REPO"
     if [[ "$REPO" == "production" ]]; then
       SENZINGSDK_URI="$PRODUCTION_URI"
       SENZINGSDK_URL="$PRODUCTION_URL"
-    elif [[ "$REPO" == "staging" ]]; then
+    else
       SENZINGSDK_URI="$STAGING_URI"
       SENZINGSDK_URL="$STAGING_URL"
     fi
-    MAJOR_VERSION="${SENZING_INSTALL_VERSION:0:1}"
-    export MAJOR_VERSION
-    is-major-version-greater-than-3
-    determine-zip-for-version
 
   else
     echo "[ERROR] senzingsdk install version $SENZING_INSTALL_VERSION is unsupported"
     exit 1
-  fi 
+  fi
 
-}
-
-############################################
-# get-generic-major-version
-# GLOBALS:
-#   SENZING_INSTALL_VERSION
-#     one of: production-v<X>, staging-v<X>
-#     semver does not apply here
-############################################
-get-generic-major-version(){
-
-  MAJOR_VERSION=$(echo "$SENZING_INSTALL_VERSION" | grep -Eo '[0-9]+$')
-  echo "[INFO] major version is: $MAJOR_VERSION"
+  # Phase 2: Determine major version
+  if [[ "$SENZING_INSTALL_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+ ]]; then
+    MAJOR_VERSION="${SENZING_INSTALL_VERSION%%.*}"
+  else
+    MAJOR_VERSION=$(echo "$SENZING_INSTALL_VERSION" | grep -Eo '[0-9]+$')
+  fi
   export MAJOR_VERSION
+  echo "[INFO] major version is: $MAJOR_VERSION"
+  is-major-version-greater-than-3
+
+  # Phase 3: Determine artifact to download
+  if [[ "$SENZING_INSTALL_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]{5}$ ]]; then
+    determine-zip-for-version
+  elif [[ "$SENZING_INSTALL_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+    determine-latest-zip-for-semver
+  else
+    determine-latest-zip-for-major-version
+  fi
 
 }
 
@@ -83,8 +79,6 @@ get-generic-major-version(){
 # is-major-version-greater-than-3
 # GLOBALS:
 #   MAJOR_VERSION
-#     set prior to this call via
-#     get-generic-major-version
 ############################################
 is-major-version-greater-than-3() {
 
@@ -102,18 +96,44 @@ is-major-version-greater-than-3() {
 ############################################
 # determine-latest-zip-for-major-version
 # GLOBALS:
-#   SENZING_INSTALL_VERSION
-#     one of: production-v<X>, staging-v<X>
+#   MAJOR_VERSION
 #   SENZINGSDK_URI
+#   SENZINGSDK_URL
 ############################################
 determine-latest-zip-for-major-version() {
 
-  aws s3 ls "$SENZINGSDK_URI" --recursive --no-sign-request --region us-east-1 | grep -o -E '[^ ]+.zip$' > /tmp/staging-versions
-  latest_staging_version=$(< /tmp/staging-versions grep "_$MAJOR_VERSION" | sort -r | head -n 1)
-  rm /tmp/staging-versions
-  echo "[INFO] latest staging version is: $latest_staging_version"
+  aws s3 ls "$SENZINGSDK_URI" --recursive --no-sign-request --region us-east-1 | grep -o -E '[^ ]+\.zip$' > /tmp/staging-versions
+  latest_staging_version=$(grep "_${MAJOR_VERSION}" /tmp/staging-versions | sort -r | head -n 1) || true
+  rm -f /tmp/staging-versions
+  if [ -z "$latest_staging_version" ]; then
+    echo "[ERROR] no ZIP found for major version $MAJOR_VERSION"
+    exit 1
+  fi
+  echo "[INFO] latest version for major version $MAJOR_VERSION is: $latest_staging_version"
 
   SENZINGSDK_ZIP_URL="$SENZINGSDK_URL$latest_staging_version"
+
+}
+
+############################################
+# determine-latest-zip-for-semver
+# GLOBALS:
+#   SENZING_INSTALL_VERSION
+#   SENZINGSDK_URI
+#   SENZINGSDK_URL
+############################################
+determine-latest-zip-for-semver() {
+
+  aws s3 ls "$SENZINGSDK_URI" --recursive --no-sign-request --region us-east-1 | grep -o -E '[^ ]+\.zip$' > /tmp/staging-versions
+  latest_semver_version=$(grep "_${SENZING_INSTALL_VERSION}\." /tmp/staging-versions | sort -r | head -n 1) || true
+  rm -f /tmp/staging-versions
+  if [ -z "$latest_semver_version" ]; then
+    echo "[ERROR] no ZIP found for version $SENZING_INSTALL_VERSION"
+    exit 1
+  fi
+  echo "[INFO] latest build for $SENZING_INSTALL_VERSION is: $latest_semver_version"
+
+  SENZINGSDK_ZIP_URL="$SENZINGSDK_URL$latest_semver_version"
 
 }
 
@@ -121,12 +141,11 @@ determine-latest-zip-for-major-version() {
 # determine-zip-for-version
 # GLOBALS:
 #   SENZING_INSTALL_VERSION
-#     one of: production-v<X>, staging-v<X>
-#   SENZINGSDK_URI
+#   SENZINGSDK_URL
 ############################################
 determine-zip-for-version() {
 
-  SENZINGSDK_ZIP_URL="$SENZINGSDK_URL"SenzingSDK_"$latest_staging_version".zip
+  SENZINGSDK_ZIP_URL="$SENZINGSDK_URL"SenzingSDK_"$SENZING_INSTALL_VERSION".zip
 
 }
 
@@ -137,28 +156,23 @@ determine-zip-for-version() {
 ############################################
 download-zip() {
 
-  echo "[INFO] curl --output senzingsdk.zip SENZINGSDK_ZIP_URL_REDACTED"
-  curl --output senzingsdk.zip "$SENZINGSDK_ZIP_URL"
+  echo "[INFO] curl --fail --output senzingsdk.zip SENZINGSDK_ZIP_URL_REDACTED"
+  curl --fail --output senzingsdk.zip "$SENZINGSDK_ZIP_URL"
 
 }
-
 
 ############################################
 # install-senzingsdk
 ############################################
 install-senzingsdk() {
 
-  7z x -y -o"$HOME" senzingsdk.zip 
+  7z x -y -o"$HOME" senzingsdk.zip
+  rm -f senzingsdk.zip
 
 }
 
 ############################################
 # verify-installation
-# GLOBALS:
-#   MAJOR_VERSION
-#     set prior to this call via either
-#     get-generic-major-version or
-#     get-semantic-major-version
 ############################################
 verify-installation() {
 
