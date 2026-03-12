@@ -23,7 +23,7 @@ runs:
         SENZINGSDK_REPOSITORY_PATH: ${{ inputs.senzingsdk-repository-path }}
       name: Install Senzing SDK
       shell: bash
-      run: "${{ github.action_path }}/install-senzing.sh"
+      run: $GITHUB_ACTION_PATH/install-senzing.sh
 
 branding:
   icon: download
