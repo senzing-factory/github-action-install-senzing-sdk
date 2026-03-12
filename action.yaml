@@ -11,16 +11,17 @@ inputs:
   senzingsdk-repository-package:
     description: Optional repository package override for senzing packages outside of staging and production. Linux only.
   senzingsdk-repository-path:
-    description: Optional repository override for senzing packages outside of staging and production.
+    description: Optional repository override for senzing packages outside of staging and production. Requires senzingsdk-version.
   senzingsdk-version:
     description: Version of Senzing SDK to install
+    required: true
 
 runs:
   using: composite
   steps:
     - if: runner.os == 'Linux'
       name: Run on Linux
-      uses: senzing-factory/github-action-install-senzing-sdk/linux@v3
+      uses: senzing-factory/github-action-install-senzing-sdk/linux@v4
       with:
         packages-to-install: ${{ inputs.packages-to-install }}
         senzingsdk-repository: ${{ inputs.senzingsdk-repository }}
@@ -30,7 +31,7 @@ runs:
 
     - if: runner.os == 'macOS'
       name: Run on macOS
-      uses: senzing-factory/github-action-install-senzing-sdk/darwin@v3
+      uses: senzing-factory/github-action-install-senzing-sdk/darwin@v4
       with:
         senzingsdk-repository: ${{ inputs.senzingsdk-repository }}
         senzingsdk-repository-path: ${{ inputs.senzingsdk-repository-path }}
@@ -38,7 +39,7 @@ runs:
 
     - if: runner.os == 'Windows'
       name: Run on Windows
-      uses: senzing-factory/github-action-install-senzing-sdk/windows@v3
+      uses: senzing-factory/github-action-install-senzing-sdk/windows@v4
       with:
         senzingsdk-repository: ${{ inputs.senzingsdk-repository }}
         senzingsdk-repository-path: ${{ inputs.senzingsdk-repository-path }}

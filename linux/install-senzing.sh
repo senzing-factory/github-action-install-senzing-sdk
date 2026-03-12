@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -e
+set -eo pipefail
 
 ############################################
 # configure-vars
@@ -22,109 +22,81 @@ configure-vars() {
   # semantic version with build number
   REGEX_SEM_VER_BUILD_NUM="^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)-([0-9]){5}$"
 
-  if [ -z "$SENZING_INSTALL_VERSION" ] && [ -n "$SENZINGSDK_REPOSITORY_PATH" ] && [ -n "$SENZINGSDK_REPOSITORY_PACKAGE" ]; then
+  # Phase 1: Determine repository
+  if [ -n "$SENZINGSDK_REPOSITORY_PATH" ] && [ -n "$SENZINGSDK_REPOSITORY_PACKAGE" ]; then
 
     echo "[INFO] install $PACKAGES_TO_INSTALL from supplied repository"
-    MAJOR_VERSION=4
-    export MAJOR_VERSION
     INSTALL_REPO="$SENZINGSDK_REPOSITORY_PATH/$SENZINGSDK_REPOSITORY_PACKAGE"
-    SENZING_PACKAGES="$PACKAGES_TO_INSTALL"
 
-  elif [[ $SENZING_INSTALL_VERSION =~ "production" ]]; then
+  elif [[ "$SENZING_INSTALL_VERSION" =~ ^production-v[0-9]+$ ]]; then
 
     echo "[INFO] install $PACKAGES_TO_INSTALL from production"
-    get-generic-major-version
-    is-major-version-greater-than-3
     INSTALL_REPO="$PROD_REPO_V4_AND_ABOVE"
-    SENZING_PACKAGES="$PACKAGES_TO_INSTALL"
 
-  elif [[ $SENZING_INSTALL_VERSION =~ "staging" ]]; then
+  elif [[ "$SENZING_INSTALL_VERSION" =~ ^staging-v[0-9]+$ ]]; then
 
     echo "[INFO] install $PACKAGES_TO_INSTALL from staging"
-    get-generic-major-version
-    is-major-version-greater-than-3
     INSTALL_REPO="$STAGING_REPO_V4_AND_ABOVE"
-    SENZING_PACKAGES="$PACKAGES_TO_INSTALL"
 
-  elif [[ $SENZING_INSTALL_VERSION =~ $REGEX_SEM_VER ]]; then
-  
-    get-semantic-major-version
-    is-major-version-greater-than-3
+  elif [[ $SENZING_INSTALL_VERSION =~ $REGEX_SEM_VER ]] || [[ $SENZING_INSTALL_VERSION =~ $REGEX_SEM_VER_BUILD_NUM ]]; then
+
     REPO="${SENZINGSDK_REPOSITORY:-staging}"
     echo "[INFO] install $PACKAGES_TO_INSTALL version $SENZING_INSTALL_VERSION from $REPO"
     if [[ "$REPO" == "production" ]]; then
       INSTALL_REPO="$PROD_REPO_V4_AND_ABOVE"
-    elif [[ "$REPO" == "staging" ]]; then
+    else
       INSTALL_REPO="$STAGING_REPO_V4_AND_ABOVE"
     fi
-    IFS=" " read -r -a packages <<< "$PACKAGES_TO_INSTALL"
-    for package in "${packages[@]}"
-    do
-      if [[ ! $package == *"senzingdata-v"* ]]; then
-        updated_packages+="$package=$SENZING_INSTALL_VERSION* "
-      else
-        updated_packages+="$package "
-      fi
-    done
-    SENZING_PACKAGES="$updated_packages"
-
-  elif [[ $SENZING_INSTALL_VERSION =~ $REGEX_SEM_VER_BUILD_NUM ]]; then
-
-    get-semantic-major-version
-    is-major-version-greater-than-3
-    REPO="${SENZINGSDK_REPOSITORY:-staging}"
-    echo "[INFO] install $PACKAGES_TO_INSTALL version $SENZING_INSTALL_VERSION from $REPO"
-    if [[ "$REPO" == "production" ]]; then
-      INSTALL_REPO="$PROD_REPO_V4_AND_ABOVE"
-    elif [[ "$REPO" == "staging" ]]; then
-      INSTALL_REPO="$STAGING_REPO_V4_AND_ABOVE"
-    fi
-    IFS=" " read -r -a packages <<< "$PACKAGES_TO_INSTALL"
-    for package in "${packages[@]}"
-    do
-      if [[ ! $package == *"senzingdata-v"* ]]; then
-        updated_packages+="$package=$SENZING_INSTALL_VERSION "
-      else
-        updated_packages+="$package "
-      fi
-    done
-    SENZING_PACKAGES="$updated_packages"
 
   else
     echo "[ERROR] $PACKAGES_TO_INSTALL install version $SENZING_INSTALL_VERSION is unsupported"
     exit 1
   fi
 
+  # Phase 2: Determine major version
+  if [[ "$SENZING_INSTALL_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+ ]]; then
+    MAJOR_VERSION="${SENZING_INSTALL_VERSION%%.*}"
+  else
+    MAJOR_VERSION=$(echo "$SENZING_INSTALL_VERSION" | grep -Eo '[0-9]+$')
+  fi
+  export MAJOR_VERSION
+  echo "[INFO] major version is: $MAJOR_VERSION"
+  is-major-version-greater-than-3
+
+  # Phase 3: Determine packages to install
+  if [[ $SENZING_INSTALL_VERSION =~ $REGEX_SEM_VER ]]; then
+    pin-packages-to-version "$SENZING_INSTALL_VERSION*"
+  elif [[ $SENZING_INSTALL_VERSION =~ $REGEX_SEM_VER_BUILD_NUM ]]; then
+    pin-packages-to-version "$SENZING_INSTALL_VERSION"
+  else
+    SENZING_PACKAGES="$PACKAGES_TO_INSTALL"
+  fi
+
 }
 
 ############################################
-# get-generic-major-version
+# pin-packages-to-version
+# Appends version constraint to each package
+# name, excluding senzingdata-v* packages.
+# ARGS:
+#   $1 - version string to pin to
 # GLOBALS:
-#   SENZING_INSTALL_VERSION
-#     one of: production-v<X>, staging-v<X>
-#     semver does not apply here
+#   PACKAGES_TO_INSTALL
 ############################################
-get-generic-major-version(){
+pin-packages-to-version() {
 
-  MAJOR_VERSION=$(echo "$SENZING_INSTALL_VERSION" | grep -Eo '[0-9]+$')
-  echo "[INFO] major version is: $MAJOR_VERSION"
-  export MAJOR_VERSION
-
-}
-
-############################################
-# get-semantic-major-version
-# GLOBALS:
-#   SENZING_INSTALL_VERSION
-#     one of: X.Y.Z, X.Y.Z-ABCDE
-#     production-v<X> and staging-v<X> 
-#     does not apply here
-############################################
-get-semantic-major-version(){
-
-  MAJOR_VERSION=${SENZING_INSTALL_VERSION%%.*}
-  echo "[INFO] major version is: $MAJOR_VERSION"
-  export MAJOR_VERSION
+  local version_pin="$1"
+  local updated_packages=""
+  IFS=" " read -r -a packages <<< "$PACKAGES_TO_INSTALL"
+  for package in "${packages[@]}"
+  do
+    if [[ ! $package == *"senzingdata-v"* ]]; then
+      updated_packages+="$package=$version_pin "
+    else
+      updated_packages+="$package "
+    fi
+  done
+  SENZING_PACKAGES="$updated_packages"
 
 }
 
@@ -132,9 +104,6 @@ get-semantic-major-version(){
 # is-major-version-greater-than-3
 # GLOBALS:
 #   MAJOR_VERSION
-#     set prior to this call via either
-#     get-generic-major-version or
-#     get-semantic-major-version
 ############################################
 is-major-version-greater-than-3() {
 
@@ -158,13 +127,10 @@ is-major-version-greater-than-3() {
 #
 # GLOBALS:
 #   MAJOR_VERSION
-#     set prior to this call via either
-#     get-generic-major-version or
-#     get-semantic-major-version
 ############################################
 restrict-major-version() {
 
-  senzing_packages=$(apt list | grep senzing | cut -d '/' -f 1 | grep -v "data" | grep -v "staging" | grep -v "repo")
+  senzing_packages=$(apt list | grep senzing | cut -d '/' -f 1 | grep -v "data" | grep -v "staging" | grep -v "repo") || true
   echo "[INFO] senzing packages: $senzing_packages"
 
   for package in $senzing_packages
@@ -195,7 +161,7 @@ install-senzing-repository() {
   echo "[INFO] sudo apt-get -y -qq install /tmp/senzingrepo.deb > /dev/null"
   sudo apt-get -yqq install /tmp/senzingrepo.deb  > /dev/null
   echo "[INFO] sudo apt-get -qq update > /dev/null"
-  sudo apt-get update > /dev/null 
+  sudo apt-get update > /dev/null
   rm /tmp/senzingrepo.deb
 
 }
@@ -207,7 +173,7 @@ install-senzing-repository() {
 #     full package name used for install
 ############################################
 install-senzingsdk() {
-  
+
   restrict-major-version
   echo "[INFO] sudo apt list | grep senzing | grep -v repo"
   sudo apt list | grep senzing | grep -v repo
@@ -219,11 +185,6 @@ install-senzingsdk() {
 
 ############################################
 # verify-installation
-# GLOBALS:
-#   MAJOR_VERSION
-#     set prior to this call via either
-#     get-generic-major-version or
-#     get-semantic-major-version
 ############################################
 verify-installation() {
 
