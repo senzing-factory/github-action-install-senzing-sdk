@@ -128,7 +128,9 @@ is-major-version-greater-than-3() {
 # GLOBALS:
 #   MAJOR_VERSION
 ############################################
-restrict-major-version() {
+restrict-package-versions() {
+
+  local pin_version="${1:-$MAJOR_VERSION.*}"
 
   senzing_packages=$(apt list | grep senzing | cut -d '/' -f 1 | grep -v "data" | grep -v "staging" | grep -v "repo") || true
   echo "[INFO] senzing packages: $senzing_packages"
@@ -136,10 +138,10 @@ restrict-major-version() {
   for package in $senzing_packages
   do
     preferences_file="/etc/apt/preferences.d/$package"
-    echo "[INFO] restrict $package major version to: $MAJOR_VERSION"
+    echo "[INFO] restrict $package version to: $pin_version"
 
     echo "Package: $package" | sudo tee -a "$preferences_file"
-    echo "Pin: version $MAJOR_VERSION.*" | sudo tee -a "$preferences_file"
+    echo "Pin: version $pin_version" | sudo tee -a "$preferences_file"
     echo "Pin-Priority: 999" | sudo tee -a "$preferences_file"
   done
 
@@ -174,7 +176,14 @@ install-senzing-repository() {
 ############################################
 install-senzingsdk() {
 
-  restrict-major-version
+  # Pin all senzing packages to the specific version if semver, otherwise major version
+  if [[ $SENZING_INSTALL_VERSION =~ $REGEX_SEM_VER ]]; then
+    restrict-package-versions "${SENZING_INSTALL_VERSION}*"
+  elif [[ $SENZING_INSTALL_VERSION =~ $REGEX_SEM_VER_BUILD_NUM ]]; then
+    restrict-package-versions "$SENZING_INSTALL_VERSION"
+  else
+    restrict-package-versions "$MAJOR_VERSION.*"
+  fi
   echo "[INFO] sudo apt list | grep senzing | grep -v repo"
   sudo apt list | grep senzing | grep -v repo
   echo "[INFO] sudo --preserve-env apt-get -y -qq install $SENZING_PACKAGES > /dev/null"
