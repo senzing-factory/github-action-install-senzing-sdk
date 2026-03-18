@@ -173,8 +173,8 @@ install-openssl() {
 
   local version
   version=$(grep -o '"VERSION": "[^"]*"' "$HOME"/senzing/er/szBuildVersion.json | cut -d'"' -f4)
-  local major minor patch
-  IFS='.' read -r major minor patch <<< "$version"
+  local major minor _patch
+  IFS='.' read -r major minor _patch <<< "$version"
 
   if [[ "$major" -gt 4 ]] || { [[ "$major" -eq 4 ]] && [[ "$minor" -ge 3 ]]; }; then
     echo "[INFO] SDK version $version requires OpenSSL 3, installing via Homebrew (temporary workaround)"
