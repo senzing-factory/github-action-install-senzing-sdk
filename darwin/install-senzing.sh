@@ -179,6 +179,10 @@ install-openssl() {
   if [[ "$major" -gt 4 ]] || { [[ "$major" -eq 4 ]] && [[ "$minor" -ge 3 ]]; }; then
     echo "[INFO] SDK version $version requires OpenSSL 3, installing via Homebrew (temporary workaround)"
     brew install openssl@3
+    local openssl_lib
+    openssl_lib="$(brew --prefix openssl@3)/lib"
+    echo "[INFO] adding $openssl_lib to DYLD_LIBRARY_PATH"
+    echo "DYLD_LIBRARY_PATH=${openssl_lib}:${DYLD_LIBRARY_PATH:-}" >> "$GITHUB_ENV"
   else
     echo "[INFO] SDK version $version bundles OpenSSL, skipping Homebrew install"
   fi
