@@ -162,6 +162,30 @@ download-dmg() {
 }
 
 ############################################
+# install-openssl
+# Temporary workaround: SDK DMG no longer
+# bundles OpenSSL 3 (will ship as a Homebrew
+# dependency once the brew install path is
+# ready). Remove when switching to brew
+# install --cask senzing-sdk.
+############################################
+install-openssl() {
+
+  local version
+  version=$(grep -o '"VERSION": "[^"]*"' "$HOME"/senzing/er/szBuildVersion.json | cut -d'"' -f4)
+  local major minor _patch
+  IFS='.' read -r major minor _patch <<< "$version"
+
+  if [[ "$major" -gt 4 ]] || { [[ "$major" -eq 4 ]] && [[ "$minor" -ge 3 ]]; }; then
+    echo "[INFO] SDK version $version requires OpenSSL 3, installing via Homebrew (temporary workaround)"
+    brew install openssl@3
+  else
+    echo "[INFO] SDK version $version bundles OpenSSL, skipping Homebrew install"
+  fi
+
+}
+
+############################################
 # install-senzing
 ############################################
 install-senzing() {
@@ -197,4 +221,5 @@ verify-installation() {
 configure-vars
 download-dmg
 install-senzing
+install-openssl
 verify-installation
