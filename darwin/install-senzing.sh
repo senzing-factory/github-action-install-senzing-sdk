@@ -269,6 +269,10 @@ determine-homebrew-version() {
     filename="${latest##*/}"
     HOMEBREW_PIN_VERSION="${filename#senzingsdk_}"
     HOMEBREW_PIN_VERSION="${HOMEBREW_PIN_VERSION%.dmg}"
+    if [[ ! "$HOMEBREW_PIN_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+      echo "[ERROR] could not parse build version from S3 filename '$filename' (expected senzingsdk_X.Y.Z.BUILD.dmg)"
+      exit 1
+    fi
     echo "[INFO] resolved $SENZING_INSTALL_VERSION to homebrew pin version $HOMEBREW_PIN_VERSION"
   else
     HOMEBREW_PIN_VERSION=""

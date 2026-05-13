@@ -260,6 +260,10 @@ determine-scoop-version() {
     filename="${latest##*/}"
     SCOOP_PIN_VERSION="${filename#SenzingSDK_}"
     SCOOP_PIN_VERSION="${SCOOP_PIN_VERSION%.zip}"
+    if [[ ! "$SCOOP_PIN_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+      echo "[ERROR] could not parse build version from S3 filename '$filename' (expected SenzingSDK_X.Y.Z.BUILD.zip)"
+      exit 1
+    fi
     echo "[INFO] resolved $SENZING_INSTALL_VERSION to scoop pin version $SCOOP_PIN_VERSION"
   else
     SCOOP_PIN_VERSION=""
@@ -396,7 +400,7 @@ install-scoop-pinned() {
   zip_path="/tmp/senzingsdk-pinned.zip"
 
   echo "[INFO] downloading pinned zip"
-  curl --fail --silent --output "$zip_path" "$zip_url"
+  curl --fail --silent --show-error --output "$zip_path" "$zip_url"
   zip_sha=$(sha256sum "$zip_path" | awk '{print $1}')
   # Don't rm the zip here: the generated manifest points at it as a
   # file:// URL so scoop reuses the local copy. EXIT trap removes it.
@@ -406,6 +410,11 @@ install-scoop-pinned() {
   # (forward slashes) before embedding in the file:// URL.
   zip_path_win=$(cygpath -m "$zip_path")
 
+  # `extract_dir: senzing` mirrors the prod/staging bucket manifests
+  # and matches the current SenzingSDK_X.Y.Z.BUILD.zip layout: every
+  # path is rooted under a top-level `senzing/` directory. If the
+  # archive's internal structure ever changes, this needs to be
+  # updated in lockstep with the bucket manifests.
   local manifest_path="/tmp/senzingsdk-pinned.json"
   cat > "$manifest_path" <<JSON
 {
@@ -467,7 +476,11 @@ link-scoop-prefix() {
 publish-scoop-env() {
 
   local senzing_root="$HOME/Senzing/er"
-  echo "SENZING_DIR=$senzing_root" >> "${GITHUB_ENV:-/dev/null}"
+  # SENZING_ROOT for cross-platform consistency with the darwin path
+  # (publish-homebrew-env exports the same name). The scoop manifest
+  # additionally sets SENZING_DIR via its env_set block; we keep
+  # SENZING_ROOT here as the install-action's canonical name.
+  echo "SENZING_ROOT=$senzing_root" >> "${GITHUB_ENV:-/dev/null}"
   # PATH additions belong in $GITHUB_PATH (one dir per line). Writing
   # PATH=... to $GITHUB_ENV would freeze a snapshot of $PATH and clobber
   # any modifications other steps (or the runner) make in between.
