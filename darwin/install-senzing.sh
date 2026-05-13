@@ -410,15 +410,24 @@ verify-installation() {
 ############################################
 # Main
 ############################################
+main() {
 
-configure-vars
+  configure-vars
 
-if [[ "$DARWIN_INSTALLER" == "homebrew" ]]; then
-  install-via-homebrew
-else
-  download-dmg
-  install-senzing
-  install-openssl
+  if [[ "$DARWIN_INSTALLER" == "homebrew" ]]; then
+    install-via-homebrew
+  else
+    download-dmg
+    install-senzing
+    install-openssl
+  fi
+
+  verify-installation
+
+}
+
+# Only run main when executed directly; allows the script to be sourced
+# from tests (e.g. bats) to exercise individual functions.
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+  main "$@"
 fi
-
-verify-installation
