@@ -128,8 +128,7 @@ determine-installer() {
     WINDOWS_INSTALLER="$detected"
     echo "[INFO] auto-detected windows-installer: $WINDOWS_INSTALLER"
   elif [[ "$WINDOWS_INSTALLER" == "scoop" && "$detected" == "native" && "$SENZING_INSTALL_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+ ]]; then
-    echo "[WARN] windows-installer=scoop requested but version $SENZING_INSTALL_VERSION is pre-4.3.0"
-    echo "[WARN] scoop install is supported for SDK 4.3.0+ only; falling back to native"
+    echo "::warning::windows-installer=scoop requested but version $SENZING_INSTALL_VERSION is pre-4.3.0; scoop install is supported for SDK 4.3.0+ only, falling back to native"
     WINDOWS_INSTALLER="native"
   else
     echo "[INFO] windows-installer: $WINDOWS_INSTALLER"
@@ -175,11 +174,14 @@ is-major-version-greater-than-3() {
 list-latest-zip() {
 
   local pattern="$1"
+  # `|| true` only on the two greps: a "no match" (exit 1) is a
+  # legitimate empty result that callers handle. Errors from
+  # `aws s3 ls` (network, credentials) propagate via pipefail.
   aws s3 ls "$SENZINGSDK_URI" --recursive --no-sign-request --region us-east-1 \
-    | grep -o -E '[^ ]+\.zip$' \
-    | grep "$pattern" \
+    | { grep -o -E '[^ ]+\.zip$' || true; } \
+    | { grep "$pattern" || true; } \
     | sort -r \
-    | head -n 1 || true
+    | head -n 1
 
 }
 
@@ -327,7 +329,12 @@ ensure-scoop-installed() {
   fi
 
   echo "[INFO] installing scoop"
-  powershell -NoProfile -Command "Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass; iex \"& {\$(irm get.scoop.sh)} -RunAsAdmin\""
+  # NOTE: deliberately no -RunAsAdmin. That flag installs Scoop into
+  # C:\ProgramData\scoop (system-wide), but every other path in this
+  # script (buckets, shims, apps) assumes the per-user prefix at
+  # $HOME/scoop. GitHub runners already run as admin, so omitting the
+  # flag just selects the layout we expect.
+  powershell -NoProfile -Command "Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass; iex \"& {\$(irm get.scoop.sh)}\""
 
   # Expose scoop on PATH for the rest of this bash script.
   local scoop_shims="$HOME/scoop/shims"
@@ -384,7 +391,7 @@ install-scoop-floating() {
 ############################################
 install-scoop-pinned() {
 
-  local zip_url zip_path zip_sha
+  local zip_url zip_path zip_sha zip_path_win
   zip_url="${SENZINGSDK_URL}SenzingSDK_${SCOOP_PIN_VERSION}.zip"
   zip_path="/tmp/senzingsdk-pinned.zip"
 
@@ -393,6 +400,11 @@ install-scoop-pinned() {
   zip_sha=$(sha256sum "$zip_path" | awk '{print $1}')
   # Don't rm the zip here: the generated manifest points at it as a
   # file:// URL so scoop reuses the local copy. EXIT trap removes it.
+
+  # Scoop runs as native PowerShell and doesn't understand MSYS2
+  # virtual paths like /tmp/..., so convert to a Windows-native path
+  # (forward slashes) before embedding in the file:// URL.
+  zip_path_win=$(cygpath -m "$zip_path")
 
   local manifest_path="/tmp/senzingsdk-pinned.json"
   cat > "$manifest_path" <<JSON
@@ -407,7 +419,7 @@ install-scoop-pinned() {
   "extract_dir": "senzing",
   "architecture": {
     "64bit": {
-      "url": "file://${zip_path}",
+      "url": "file:///${zip_path_win}",
       "hash": "${zip_sha}"
     }
   },

@@ -131,8 +131,7 @@ determine-installer() {
     DARWIN_INSTALLER="$detected"
     echo "[INFO] auto-detected darwin-installer: $DARWIN_INSTALLER"
   elif [[ "$DARWIN_INSTALLER" == "homebrew" && "$detected" == "native" && "$SENZING_INSTALL_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+ ]]; then
-    echo "[WARN] darwin-installer=homebrew requested but version $SENZING_INSTALL_VERSION is pre-4.3.0"
-    echo "[WARN] homebrew install is supported for SDK 4.3.0+ only; falling back to native"
+    echo "::warning::darwin-installer=homebrew requested but version $SENZING_INSTALL_VERSION is pre-4.3.0; homebrew install is supported for SDK 4.3.0+ only, falling back to native"
     DARWIN_INSTALLER="native"
   else
     echo "[INFO] darwin-installer: $DARWIN_INSTALLER"
@@ -181,11 +180,14 @@ is-major-version-greater-than-3() {
 list-latest-dmg() {
 
   local pattern="$1"
+  # `|| true` only on the two greps: a "no match" (exit 1) is a
+  # legitimate empty result that callers handle. Errors from
+  # `aws s3 ls` (network, credentials) propagate via pipefail.
   aws s3 ls "$SENZINGSDK_URI" --recursive --no-sign-request \
-    | grep -o -E '[^ ]+\.dmg$' \
-    | grep "$pattern" \
+    | { grep -o -E '[^ ]+\.dmg$' || true; } \
+    | { grep "$pattern" || true; } \
     | sort -r \
-    | head -n 1 || true
+    | head -n 1
 
 }
 
