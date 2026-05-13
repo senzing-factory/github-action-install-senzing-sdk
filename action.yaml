@@ -16,9 +16,11 @@ inputs:
     description: Version of Senzing SDK to install
     required: true
   darwin-installer:
-    description: "macOS only. Install via Homebrew tap (`homebrew`) or the native hdiutil/cp flow (`native`). Leave empty to auto-detect by version (homebrew for pinned SDK >= 4.3.0; native otherwise, including floating tags)."
+    description: "macOS only. Install via Homebrew tap (`homebrew`) or the native hdiutil/cp flow (`native`). Leave empty to auto-detect by version (homebrew for pinned SDK >= 4.3.0 and floating tags; native for pre-4.3.0 pinned versions)."
+  windows-installer:
+    description: "Windows only. Install via Scoop bucket (`scoop`) or the native zip/extract flow (`native`). Leave empty to auto-detect by version (scoop for pinned SDK >= 4.3.0 and floating tags; native for pre-4.3.0 pinned versions)."
   senzingsdk-token:
-    description: "macOS only. GitHub token used to clone the private staging Homebrew tap. Defaults to the calling workflow's github.token."
+    description: "macOS and Windows. GitHub token used to clone the private staging Homebrew tap (macOS) or Scoop bucket (Windows). Defaults to the calling workflow's github.token."
     default: ${{ github.token }}
 
 runs:
@@ -51,6 +53,8 @@ runs:
         senzingsdk-repository: ${{ inputs.senzingsdk-repository }}
         senzingsdk-repository-path: ${{ inputs.senzingsdk-repository-path }}
         senzingsdk-version: ${{ inputs.senzingsdk-version }}
+        windows-installer: ${{ inputs.windows-installer }}
+        senzingsdk-token: ${{ inputs.senzingsdk-token }}
 
 branding:
   icon: download

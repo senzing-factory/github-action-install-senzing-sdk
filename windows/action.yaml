@@ -11,6 +11,10 @@ inputs:
   senzingsdk-version:
     description: Version of Senzing SDK to install
     required: true
+  windows-installer:
+    description: "Install via Scoop bucket (`scoop`) or the native zip/extract flow (`native`). Leave empty to auto-detect by version (scoop for pinned SDK >= 4.3.0 and floating tags; native for pre-4.3.0 pinned versions)."
+  senzingsdk-token:
+    description: "GitHub token used to clone the private staging Scoop bucket. Required when installing via scoop from the staging bucket."
 
 runs:
   using: composite
@@ -21,6 +25,8 @@ runs:
         SENZING_INSTALL_VERSION: ${{ inputs.senzingsdk-version }}
         SENZINGSDK_REPOSITORY: ${{ inputs.senzingsdk-repository }}
         SENZINGSDK_REPOSITORY_PATH: ${{ inputs.senzingsdk-repository-path }}
+        WINDOWS_INSTALLER: ${{ inputs.windows-installer }}
+        SENZINGSDK_TOKEN: ${{ inputs.senzingsdk-token }}
       name: Install Senzing SDK
       shell: bash
       run: $GITHUB_ACTION_PATH/install-senzing.sh
