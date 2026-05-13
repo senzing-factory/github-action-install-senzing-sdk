@@ -185,23 +185,16 @@ If `homebrew` is requested with a pre-4.3.0 pinned version, the script warns and
 
 #### senzingsdk-token (macOS only)
 
-GitHub token used to clone the private staging Homebrew tap (`senzing-factory/homebrew-senzingsdk-staging`) when installing via `homebrew` from staging. Defaults to `${{ github.token }}`.
+GitHub token used to clone the private staging Homebrew tap when installing via `homebrew` from staging. Defaults to `${{ github.token }}`.
 
-The default `github.token` only has access to the workflow's own repo, so callers in other orgs must supply a token with read access to the staging tap, or staging homebrew installs will fail. The recommended pattern is a short-lived GitHub App token (see below).
+The default `github.token` only has access to the workflow's own repo. To install from the staging tap you must supply a token with read access to it; without one the staging homebrew install will fail. Two common approaches:
 
-### Authenticating the staging Homebrew tap
+- **GitHub App token (recommended).** Register a GitHub App with `Contents: Read` on the staging tap repository, install it on the org that owns the tap, then mint a short-lived token at job time using [`actions/create-github-app-token`](https://github.com/actions/create-github-app-token). Tokens expire automatically (~1 hour), are scoped to the repos you specify, and are auditable.
+- **Personal access token.** A fine-grained PAT with `Contents: Read` on the staging tap, stored as a repo or org secret. Simpler to set up, but long-lived and tied to a user account.
 
-The staging tap is a private repository. Long-lived PATs work but are discouraged. Use a GitHub App scoped to read `homebrew-senzingsdk-staging` and mint a short-lived (~1 hour) token per workflow run.
+Either way, pass the resulting token to `senzingsdk-token`. Token minting is only needed for jobs that actually hit the staging tap (i.e., `darwin-installer: homebrew` against a staging version). Production homebrew installs and all native installs do not require a token.
 
-Three Apps are maintained, one per org so cross-org workflows can each authenticate against the staging tap without sharing credentials:
-
-| Org | App | App ID variable | Private key secret |
-|---|---|---|---|
-| `senzing-factory` | senzing-factory staging tap reader | `SENZINGSDK_STAGING_APP_ID` | `SENZINGSDK_STAGING_APP_KEY` |
-| `senzing-garage`  | senzing-garage staging tap reader  | `SENZINGSDK_STAGING_APP_ID` | `SENZINGSDK_STAGING_APP_KEY` |
-| `senzing`         | senzing staging tap reader         | `SENZINGSDK_STAGING_APP_ID` | `SENZINGSDK_STAGING_APP_KEY` |
-
-Each App is installed in its org with `Contents: read` on `senzing-factory/homebrew-senzingsdk-staging`. Callers add the App ID as an org-level variable and the private key as an org-level secret, then mint a token at job time:
+Example using a GitHub App token:
 
 ```yaml
 jobs:
@@ -211,10 +204,10 @@ jobs:
       - uses: actions/create-github-app-token@v2
         id: staging-tap-token
         with:
-          app-id:        ${{ vars.SENZINGSDK_STAGING_APP_ID }}
-          private-key:   ${{ secrets.SENZINGSDK_STAGING_APP_KEY }}
-          owner:         senzing-factory
-          repositories:  homebrew-senzingsdk-staging
+          app-id:        ${{ vars.STAGING_TAP_APP_ID }}      # or client-id value
+          private-key:   ${{ secrets.STAGING_TAP_APP_KEY }}
+          owner:         <org-that-owns-the-staging-tap>
+          repositories:  <staging-tap-repo>
 
       - uses: senzing-factory/github-action-install-senzing-sdk@v5
         with:
@@ -223,7 +216,15 @@ jobs:
           senzingsdk-token:   ${{ steps.staging-tap-token.outputs.token }}
 ```
 
-Only mint a token for jobs that actually need the staging tap (i.e., `darwin-installer: homebrew` against a staging version). Production homebrew installs and all native installs do not require a token.
+Example using a PAT:
+
+```yaml
+- uses: senzing-factory/github-action-install-senzing-sdk@v5
+  with:
+    senzingsdk-version: staging-v4
+    darwin-installer:   homebrew
+    senzingsdk-token:   ${{ secrets.STAGING_TAP_PAT }}
+```
 
 [RUNNER_OS]: https://docs.github.com/en/actions/learn-github-actions/variables#default-environment-variables
 [system install]: https://github.com/senzing-garage/knowledge-base/blob/main/WHATIS/senzing-system-installation.md

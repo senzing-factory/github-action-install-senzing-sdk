@@ -89,23 +89,25 @@ jobs:
       - name: Mint staging tap token
         # Skip when secrets aren't available (fork PRs) so the
         # remaining rows still pass.
-        if: ${{ matrix.needs-staging-token && vars.SENZINGSDK_STAGING_APP_ID != '' }}
+        if: ${{ matrix.needs-staging-token && vars.SENZINGSDK_STAGING_CLIENT_ID != '' }}
         id: app-token
         uses: actions/create-github-app-token@v2
         with:
-          app-id: ${{ vars.SENZINGSDK_STAGING_APP_ID }}
-          private-key: ${{ secrets.SENZINGSDK_STAGING_APP_KEY }}
+          # `app-id` accepts either a numeric App ID or a Client ID;
+          # Client ID is GitHub's preferred forward-looking identifier.
+          app-id: ${{ vars.SENZINGSDK_STAGING_CLIENT_ID }}
+          private-key: ${{ secrets.SENZINGSDK_STAGING_PRIVATE_KEY }}
           owner: senzing-factory
           repositories: homebrew-senzingsdk-staging
 
       - name: Skip when token unavailable
-        if: ${{ matrix.needs-staging-token && vars.SENZINGSDK_STAGING_APP_ID == '' }}
+        if: ${{ matrix.needs-staging-token && vars.SENZINGSDK_STAGING_CLIENT_ID == '' }}
         run: |
           echo "::warning::staging tap token unavailable in this context; skipping homebrew staging install"
           exit 0
 
       - name: Run install script
-        if: ${{ !matrix.needs-staging-token || vars.SENZINGSDK_STAGING_APP_ID != '' }}
+        if: ${{ !matrix.needs-staging-token || vars.SENZINGSDK_STAGING_CLIENT_ID != '' }}
         env:
           SENZING_INSTALL_VERSION: ${{ matrix.senzingsdk-version }}
           DARWIN_INSTALLER: ${{ matrix.darwin-installer }}
