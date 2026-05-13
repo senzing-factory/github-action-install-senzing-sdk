@@ -204,16 +204,16 @@ jobs:
       - uses: actions/create-github-app-token@v2
         id: staging-tap-token
         with:
-          app-id:        ${{ vars.STAGING_TAP_APP_ID }}      # or client-id value
-          private-key:   ${{ secrets.STAGING_TAP_APP_KEY }}
-          owner:         <org-that-owns-the-staging-tap>
-          repositories:  <staging-tap-repo>
+          app-id: ${{ vars.STAGING_TAP_APP_ID }} # or client-id value
+          private-key: ${{ secrets.STAGING_TAP_APP_KEY }}
+          owner: <org-that-owns-the-staging-tap>
+          repositories: <staging-tap-repo>
 
       - uses: senzing-factory/github-action-install-senzing-sdk@v5
         with:
           senzingsdk-version: staging-v4
-          darwin-installer:   homebrew
-          senzingsdk-token:   ${{ steps.staging-tap-token.outputs.token }}
+          darwin-installer: homebrew
+          senzingsdk-token: ${{ steps.staging-tap-token.outputs.token }}
 ```
 
 Example using a PAT:
@@ -222,8 +222,8 @@ Example using a PAT:
 - uses: senzing-factory/github-action-install-senzing-sdk@v5
   with:
     senzingsdk-version: staging-v4
-    darwin-installer:   homebrew
-    senzingsdk-token:   ${{ secrets.STAGING_TAP_PAT }}
+    darwin-installer: homebrew
+    senzingsdk-token: ${{ secrets.STAGING_TAP_PAT }}
 ```
 
 [RUNNER_OS]: https://docs.github.com/en/actions/learn-github-actions/variables#default-environment-variables

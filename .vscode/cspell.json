@@ -14,7 +14,9 @@
     "senzingrepo",
     "senzingsdk",
     "senzingstagingrepo",
-    "stackoverflow"
+    "shellcheck",
+    "stackoverflow",
+    "subactions"
   ],
   "ignorePaths": [".git/**"]
 }

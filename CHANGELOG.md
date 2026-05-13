@@ -14,9 +14,9 @@ and this project adheres to [Semantic Versioning].
 
 ### Added in Unreleased
 
-- `darwin-installer` input (macOS only): selects `homebrew` or `native`. Defaults to auto-detect (homebrew for pinned SDK ≥ 4.3.0; native for pre-4.3.0 pinned versions and for floating tags `staging-vN`/`production-vN`). Requesting `homebrew` against a pre-4.3.0 pinned version warns and falls back to `native`. The floating-tag default will move to `homebrew` once 4.3.0 is live in both taps.
+- `darwin-installer` input (macOS only): selects `homebrew` or `native`. Defaults to auto-detect (`homebrew` for pinned SDK ≥ 4.3.0; `native` for pre-4.3.0 pinned versions and for floating tags `staging-vN`/`production-vN`). Requesting `homebrew` against a pre-4.3.0 pinned version warns and falls back to `native`. The floating-tag default will move to `homebrew` once 4.3.0 is live in both taps.
 - `senzingsdk-token` input (macOS only): GitHub token used to clone the private staging Homebrew tap. Defaults to `${{ github.token }}`.
-- macOS homebrew install path: taps `Senzing/senzingsdk` (production) or `senzing-factory/senzingsdk-staging` (private) and runs `brew install --cask`. Pinned `X.Y.Z.BUILD` versions are forwarded via `HOMEBREW_SENZING_SDK_VERSION`; pinned `X.Y.Z` resolves the latest build from S3 before installing. `$HOME/senzing` is symlinked to the homebrew install for backward compatibility.
+- macOS Homebrew install path: taps `Senzing/senzingsdk` (production) or `senzing-factory/senzingsdk-staging` (private) and runs `brew install --cask`. Pinned `X.Y.Z.BUILD` versions are forwarded via `HOMEBREW_SENZING_SDK_VERSION`; pinned `X.Y.Z` resolves the latest build from S3 before installing. `$HOME/senzing` is symlinked to the Homebrew install for backward compatibility.
 
 ## [4.0.0] - 2026-03-12
 
