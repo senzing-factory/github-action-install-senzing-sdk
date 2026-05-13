@@ -370,8 +370,11 @@ publish-homebrew-env() {
   {
     echo "SENZING_ROOT=$senzing_root"
     echo "DYLD_LIBRARY_PATH=${senzing_root}/lib:${openssl_lib}${DYLD_LIBRARY_PATH:+:${DYLD_LIBRARY_PATH}}"
-    echo "PATH=${senzing_root}/bin:${PATH}"
   } >> "${GITHUB_ENV:-/dev/null}"
+  # PATH additions belong in $GITHUB_PATH (one dir per line). Writing
+  # PATH=... to $GITHUB_ENV would freeze a snapshot of $PATH and clobber
+  # any modifications other steps (or the runner) make in between.
+  echo "${senzing_root}/bin" >> "${GITHUB_PATH:-/dev/null}"
 
 }
 

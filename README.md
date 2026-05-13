@@ -199,7 +199,7 @@ GitHub token used to clone the private staging Homebrew tap (macOS, when install
 
 The default `github.token` only has access to the workflow's own repository. To install from the staging tap/bucket you must supply a token with read access to it; without one the staging install will fail. Two common approaches:
 
-- **GitHub App token (recommended).** Register a GitHub App with `Contents: Read` on the staging repository, install it on the org that owns the repo, then mint a short-lived token at job time using [`actions/create-github-app-token`](https://github.com/actions/create-github-app-token). Tokens expire automatically (~1 hour), are scoped to the repositories you specify, and are auditable.
+- **GitHub App token (recommended).** Register a GitHub App with `Contents: Read` on the staging repository, install it on the org that owns the repository, then mint a short-lived token at job time using [`actions/create-github-app-token`](https://github.com/actions/create-github-app-token). Tokens expire automatically (~1 hour), are scoped to the repositories you specify, and are auditable.
 - **Personal access token.** A fine-grained PAT with `Contents: Read` on the staging repository, stored as a repository or org secret. Simpler to set up, but long-lived and tied to a user account.
 
 Either way, pass the resulting token to `senzingsdk-token`. Token minting is only needed for jobs that actually hit a staging install (i.e., `darwin-installer: homebrew` or `windows-installer: scoop` against a staging version). Production installs and all native installs do not require a token.

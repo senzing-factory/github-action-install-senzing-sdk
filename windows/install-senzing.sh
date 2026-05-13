@@ -2,7 +2,7 @@
 set -eo pipefail
 
 # Clean up temp files on exit
-trap 'rm -f /tmp/staging-versions senzingsdk.zip /tmp/senzingsdk-pinned.json' EXIT
+trap 'rm -f /tmp/staging-versions senzingsdk.zip /tmp/senzingsdk-pinned.json /tmp/senzingsdk-pinned.zip' EXIT
 
 ############################################
 # configure-vars
@@ -296,8 +296,15 @@ install-via-scoop() {
 
   ensure-scoop-installed
 
+  # Both buckets check EULA acceptance in their pre_install block but
+  # use different env-var names (prod: SENZING_ACCEPT_EULA, staging:
+  # SENZING_EULA_ACCEPTED). Set both once here so the install routines
+  # don't have to repeat it.
+  export SENZING_ACCEPT_EULA="I_ACCEPT_THE_SENZING_EULA"
+  export SENZING_EULA_ACCEPTED="yes"
+
   if [ -n "$SCOOP_PIN_VERSION" ]; then
-    install-scoop-pinned "$bucket_repo"
+    install-scoop-pinned
   else
     install-scoop-floating "$bucket_repo"
   fi
@@ -361,22 +368,19 @@ install-scoop-floating() {
   fi
 
   echo "[INFO] scoop install senzingsdk/senzingsdk"
-  # Prod bucket expects SENZING_ACCEPT_EULA=I_ACCEPT_THE_SENZING_EULA;
-  # staging bucket expects SENZING_EULA_ACCEPTED=yes. Set both so we
-  # cover either manifest's EULA-acceptance check.
-  SENZING_ACCEPT_EULA="I_ACCEPT_THE_SENZING_EULA" \
-  SENZING_EULA_ACCEPTED="yes" \
-    scoop install senzingsdk/senzingsdk
+  scoop install senzingsdk/senzingsdk
 
 }
 
 ############################################
 # install-scoop-pinned
-# Pinned-version install: generate a one-off
-# manifest with the exact version/url/hash
-# and `scoop install` from that path.
-# ARGS:
-#   $1 - bucket repo path (unused for prod, used to determine S3 URL)
+# Pinned-version install: download the zip
+# once, generate a manifest pointing at the
+# local file (avoids a second download via
+# the HTTPS URL), and `scoop install` it.
+# GLOBALS:
+#   SENZINGSDK_URL
+#   SCOOP_PIN_VERSION
 ############################################
 install-scoop-pinned() {
 
@@ -384,10 +388,11 @@ install-scoop-pinned() {
   zip_url="${SENZINGSDK_URL}SenzingSDK_${SCOOP_PIN_VERSION}.zip"
   zip_path="/tmp/senzingsdk-pinned.zip"
 
-  echo "[INFO] downloading pinned zip for sha256 computation"
+  echo "[INFO] downloading pinned zip"
   curl --fail --silent --output "$zip_path" "$zip_url"
   zip_sha=$(sha256sum "$zip_path" | awk '{print $1}')
-  rm -f "$zip_path"
+  # Don't rm the zip here: the generated manifest points at it as a
+  # file:// URL so scoop reuses the local copy. EXIT trap removes it.
 
   local manifest_path="/tmp/senzingsdk-pinned.json"
   cat > "$manifest_path" <<JSON
@@ -402,7 +407,7 @@ install-scoop-pinned() {
   "extract_dir": "senzing",
   "architecture": {
     "64bit": {
-      "url": "${zip_url}",
+      "url": "file://${zip_path}",
       "hash": "${zip_sha}"
     }
   },
@@ -414,12 +419,7 @@ install-scoop-pinned() {
 JSON
 
   echo "[INFO] scoop install from pinned manifest at $manifest_path"
-  # Prod bucket expects SENZING_ACCEPT_EULA=I_ACCEPT_THE_SENZING_EULA;
-  # staging bucket expects SENZING_EULA_ACCEPTED=yes. Set both so we
-  # cover either manifest's EULA-acceptance check.
-  SENZING_ACCEPT_EULA="I_ACCEPT_THE_SENZING_EULA" \
-  SENZING_EULA_ACCEPTED="yes" \
-    scoop install "$manifest_path"
+  scoop install "$manifest_path"
 
 }
 
@@ -455,10 +455,11 @@ link-scoop-prefix() {
 publish-scoop-env() {
 
   local senzing_root="$HOME/Senzing/er"
-  {
-    echo "SENZING_DIR=$senzing_root"
-    echo "PATH=${senzing_root}/lib:${PATH}"
-  } >> "${GITHUB_ENV:-/dev/null}"
+  echo "SENZING_DIR=$senzing_root" >> "${GITHUB_ENV:-/dev/null}"
+  # PATH additions belong in $GITHUB_PATH (one dir per line). Writing
+  # PATH=... to $GITHUB_ENV would freeze a snapshot of $PATH and clobber
+  # any modifications other steps (or the runner) make in between.
+  echo "${senzing_root}/lib" >> "${GITHUB_PATH:-/dev/null}"
 
 }
 
