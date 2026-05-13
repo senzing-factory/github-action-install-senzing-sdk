@@ -166,24 +166,46 @@ is-major-version-greater-than-3() {
 }
 
 ############################################
+# list-latest-dmg
+# Lists $SENZINGSDK_URI on S3 and returns the
+# latest DMG (lexicographic sort) whose name
+# contains the supplied filter pattern.
+# ARGS:
+#   $1 - filter pattern passed to grep
+# GLOBALS:
+#   SENZINGSDK_URI
+# OUTPUTS:
+#   echoes the S3 key (may include subdir
+#   prefix) to stdout, or empty if no match
+############################################
+list-latest-dmg() {
+
+  local pattern="$1"
+  aws s3 ls "$SENZINGSDK_URI" --recursive --no-sign-request \
+    | grep -o -E '[^ ]+\.dmg$' \
+    | grep "$pattern" \
+    | sort -r \
+    | head -n 1 || true
+
+}
+
+############################################
 # determine-latest-dmg-for-major-version
 # GLOBALS:
 #   MAJOR_VERSION
-#   SENZINGSDK_URI
 #   SENZINGSDK_URL
 ############################################
 determine-latest-dmg-for-major-version() {
 
-  aws s3 ls "$SENZINGSDK_URI" --recursive --no-sign-request | grep -o -E '[^ ]+\.dmg$' > /tmp/staging-versions
-  latest_staging_version=$(grep "_${MAJOR_VERSION}" /tmp/staging-versions | sort -r | head -n 1) || true
-  rm -f /tmp/staging-versions
-  if [ -z "$latest_staging_version" ]; then
+  local latest
+  latest=$(list-latest-dmg "_${MAJOR_VERSION}")
+  if [ -z "$latest" ]; then
     echo "[ERROR] no DMG found for major version $MAJOR_VERSION"
     exit 1
   fi
-  echo "[INFO] latest version for major version $MAJOR_VERSION is: $latest_staging_version"
+  echo "[INFO] latest version for major version $MAJOR_VERSION is: $latest"
 
-  SENZINGSDK_DMG_URL="$SENZINGSDK_URL$latest_staging_version"
+  SENZINGSDK_DMG_URL="$SENZINGSDK_URL$latest"
 
 }
 
@@ -191,21 +213,19 @@ determine-latest-dmg-for-major-version() {
 # determine-latest-dmg-for-semver
 # GLOBALS:
 #   SENZING_INSTALL_VERSION
-#   SENZINGSDK_URI
 #   SENZINGSDK_URL
 ############################################
 determine-latest-dmg-for-semver() {
 
-  aws s3 ls "$SENZINGSDK_URI" --recursive --no-sign-request | grep -o -E '[^ ]+\.dmg$' > /tmp/staging-versions
-  latest_semver_version=$(grep "_${SENZING_INSTALL_VERSION}\." /tmp/staging-versions | sort -r | head -n 1) || true
-  rm -f /tmp/staging-versions
-  if [ -z "$latest_semver_version" ]; then
+  local latest
+  latest=$(list-latest-dmg "_${SENZING_INSTALL_VERSION}\.")
+  if [ -z "$latest" ]; then
     echo "[ERROR] no DMG found for version $SENZING_INSTALL_VERSION"
     exit 1
   fi
-  echo "[INFO] latest build for $SENZING_INSTALL_VERSION is: $latest_semver_version"
+  echo "[INFO] latest build for $SENZING_INSTALL_VERSION is: $latest"
 
-  SENZINGSDK_DMG_URL="$SENZINGSDK_URL$latest_semver_version"
+  SENZINGSDK_DMG_URL="$SENZINGSDK_URL$latest"
 
 }
 
@@ -225,7 +245,6 @@ determine-dmg-for-version() {
 # determine-homebrew-version
 # GLOBALS:
 #   SENZING_INSTALL_VERSION
-#   SENZINGSDK_URI
 #   HOMEBREW_PIN_VERSION (output)
 #     empty for floating tags (cask resolves latest itself)
 #     X.Y.Z.BUILD otherwise (exported via HOMEBREW_SENZING_SDK_VERSION)
@@ -236,15 +255,18 @@ determine-homebrew-version() {
     HOMEBREW_PIN_VERSION="$SENZING_INSTALL_VERSION"
     echo "[INFO] pinning homebrew install to $HOMEBREW_PIN_VERSION"
   elif [[ "$SENZING_INSTALL_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-    aws s3 ls "$SENZINGSDK_URI" --recursive --no-sign-request | grep -o -E '[^ ]+\.dmg$' > /tmp/staging-versions
-    local latest
-    latest=$(grep "_${SENZING_INSTALL_VERSION}\." /tmp/staging-versions | sort -r | head -n 1) || true
-    rm -f /tmp/staging-versions
+    local latest filename
+    latest=$(list-latest-dmg "_${SENZING_INSTALL_VERSION}\.")
     if [ -z "$latest" ]; then
       echo "[ERROR] no build found for semantic version $SENZING_INSTALL_VERSION"
       exit 1
     fi
-    HOMEBREW_PIN_VERSION=$(echo "$latest" | sed -E 's/^senzingsdk_(.+)\.dmg$/\1/')
+    # Tolerate subdir prefixes from `aws s3 ls --recursive`: strip
+    # everything up to the basename, then peel off the prefix/suffix
+    # via parameter expansion (no sed regex required).
+    filename="${latest##*/}"
+    HOMEBREW_PIN_VERSION="${filename#senzingsdk_}"
+    HOMEBREW_PIN_VERSION="${HOMEBREW_PIN_VERSION%.dmg}"
     echo "[INFO] resolved $SENZING_INSTALL_VERSION to homebrew pin version $HOMEBREW_PIN_VERSION"
   else
     HOMEBREW_PIN_VERSION=""
@@ -341,7 +363,7 @@ publish-homebrew-env() {
   local senzing_root="$HOME/senzing/er"
   {
     echo "SENZING_ROOT=$senzing_root"
-    echo "DYLD_LIBRARY_PATH=${senzing_root}/lib:${DYLD_LIBRARY_PATH:-}"
+    echo "DYLD_LIBRARY_PATH=${senzing_root}/lib${DYLD_LIBRARY_PATH:+:${DYLD_LIBRARY_PATH}}"
     echo "PATH=${senzing_root}/bin:${PATH}"
   } >> "${GITHUB_ENV:-/dev/null}"
 
@@ -380,7 +402,7 @@ install-openssl() {
     local openssl_lib
     openssl_lib="$(brew --prefix openssl@3)/lib"
     echo "[INFO] adding $openssl_lib to DYLD_LIBRARY_PATH"
-    echo "DYLD_LIBRARY_PATH=${openssl_lib}:${DYLD_LIBRARY_PATH:-}" >> "$GITHUB_ENV"
+    echo "DYLD_LIBRARY_PATH=${openssl_lib}${DYLD_LIBRARY_PATH:+:${DYLD_LIBRARY_PATH}}" >> "$GITHUB_ENV"
   else
     echo "[INFO] SDK version $version bundles OpenSSL, skipping Homebrew install"
   fi
