@@ -12,6 +12,24 @@ concurrency:
 permissions: {}
 
 jobs:
+  test-unit:
+    name: "Unit: darwin dispatch (bats)"
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Install bats
+        run: sudo apt-get update && sudo apt-get install -y bats
+
+      - name: Run bats tests
+        run: bats tests/
+
   test-linux:
     name: "Linux: ${{ matrix.senzingsdk-version }}"
     permissions:
@@ -37,7 +55,7 @@ jobs:
         run: bash linux/install-senzing.sh
 
   test-macos:
-    name: "macOS: ${{ matrix.senzingsdk-version }}"
+    name: "macOS: ${{ matrix.senzingsdk-version }} (${{ matrix.darwin-installer || 'auto' }})"
     permissions:
       contents: read
     runs-on: macos-latest
@@ -45,7 +63,21 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        senzingsdk-version: [production-v4, staging-v4, "4.2.1"]
+        include:
+          # Auto-detect coverage. Floating tags now default to homebrew;
+          # pre-4.3.0 pinned still defaults to native. The staging tap
+          # is private and requires a short-lived GitHub App token
+          # (see `Mint staging tap token` step below).
+          - senzingsdk-version: production-v4
+          - senzingsdk-version: staging-v4
+            needs-staging-token: true
+          - senzingsdk-version: "4.2.1"
+          # Explicit overrides — exercise the opt-out and warn+fallback
+          # paths so the auto-detect doesn't hide regressions.
+          - senzingsdk-version: production-v4
+            darwin-installer: native
+          - senzingsdk-version: "4.2.1"
+            darwin-installer: homebrew
 
     steps:
       - name: Checkout repository
@@ -53,9 +85,30 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Mint staging tap token
+        # Skip when secrets aren't available (fork PRs) so the
+        # remaining rows still pass.
+        if: ${{ matrix.needs-staging-token && vars.SENZINGSDK_STAGING_CLIENT_ID != '' }}
+        id: app-token
+        uses: actions/create-github-app-token@v2
+        with:
+          # `app-id` accepts either a numeric App ID or a Client ID;
+          # Client ID is GitHub's preferred forward-looking identifier.
+          app-id: ${{ vars.SENZINGSDK_STAGING_CLIENT_ID }}
+          private-key: ${{ secrets.SENZINGSDK_STAGING_PRIVATE_KEY }}
+          owner: senzing-factory
+          repositories: homebrew-senzingsdk-staging
+
+      - name: Warn when token unavailable
+        if: ${{ matrix.needs-staging-token && vars.SENZINGSDK_STAGING_CLIENT_ID == '' }}
+        run: echo "::warning::staging tap token unavailable in this context; skipping homebrew staging install"
+
       - name: Run install script
+        if: ${{ !matrix.needs-staging-token || vars.SENZINGSDK_STAGING_CLIENT_ID != '' }}
         env:
           SENZING_INSTALL_VERSION: ${{ matrix.senzingsdk-version }}
+          DARWIN_INSTALLER: ${{ matrix.darwin-installer }}
+          SENZINGSDK_TOKEN: ${{ steps.app-token.outputs.token }}
         run: bash darwin/install-senzing.sh
 
   test-windows:

@@ -10,6 +10,10 @@ inputs:
   senzingsdk-version:
     description: Version of Senzing SDK to install
     required: true
+  darwin-installer:
+    description: "Install via Homebrew tap (`homebrew`) or the native hdiutil/cp flow (`native`). Leave empty to auto-detect by version (homebrew for pinned SDK >= 4.3.0; native otherwise, including floating tags)."
+  senzingsdk-token:
+    description: "GitHub token used to clone the private staging Homebrew tap. Required when installing via homebrew from the staging tap."
 
 runs:
   using: composite
@@ -20,6 +24,8 @@ runs:
         SENZING_INSTALL_VERSION: ${{ inputs.senzingsdk-version }}
         SENZINGSDK_REPOSITORY: ${{ inputs.senzingsdk-repository }}
         SENZINGSDK_REPOSITORY_PATH: ${{ inputs.senzingsdk-repository-path }}
+        DARWIN_INSTALLER: ${{ inputs.darwin-installer }}
+        SENZINGSDK_TOKEN: ${{ inputs.senzingsdk-token }}
       name: Install Senzing SDK
       shell: bash
       run: ${{ github.action_path }}/install-senzing.sh

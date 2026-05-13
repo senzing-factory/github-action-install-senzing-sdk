@@ -15,13 +15,18 @@ inputs:
   senzingsdk-version:
     description: Version of Senzing SDK to install
     required: true
+  darwin-installer:
+    description: "macOS only. Install via Homebrew tap (`homebrew`) or the native hdiutil/cp flow (`native`). Leave empty to auto-detect by version (homebrew for pinned SDK >= 4.3.0; native otherwise, including floating tags)."
+  senzingsdk-token:
+    description: "macOS only. GitHub token used to clone the private staging Homebrew tap. Defaults to the calling workflow's github.token."
+    default: ${{ github.token }}
 
 runs:
   using: composite
   steps:
     - if: runner.os == 'Linux'
       name: Run on Linux
-      uses: senzing-factory/github-action-install-senzing-sdk/linux@v4
+      uses: senzing-factory/github-action-install-senzing-sdk/linux@v5
       with:
         packages-to-install: ${{ inputs.packages-to-install }}
         senzingsdk-repository: ${{ inputs.senzingsdk-repository }}
@@ -31,15 +36,17 @@ runs:
 
     - if: runner.os == 'macOS'
       name: Run on macOS
-      uses: senzing-factory/github-action-install-senzing-sdk/darwin@v4
+      uses: senzing-factory/github-action-install-senzing-sdk/darwin@v5
       with:
         senzingsdk-repository: ${{ inputs.senzingsdk-repository }}
         senzingsdk-repository-path: ${{ inputs.senzingsdk-repository-path }}
         senzingsdk-version: ${{ inputs.senzingsdk-version }}
+        darwin-installer: ${{ inputs.darwin-installer }}
+        senzingsdk-token: ${{ inputs.senzingsdk-token }}
 
     - if: runner.os == 'Windows'
       name: Run on Windows
-      uses: senzing-factory/github-action-install-senzing-sdk/windows@v4
+      uses: senzing-factory/github-action-install-senzing-sdk/windows@v5
       with:
         senzingsdk-repository: ${{ inputs.senzingsdk-repository }}
         senzingsdk-repository-path: ${{ inputs.senzingsdk-repository-path }}

@@ -8,7 +8,15 @@ and this project adheres to [Semantic Versioning].
 
 ## [Unreleased]
 
--
+### Changed in Unreleased
+
+- **Breaking:** root action now references the `@v5` internal subactions. Callers must pin to `@v5` (or `@main`) — `@v4` users keep the old DMG-only behavior on macOS.
+
+### Added in Unreleased
+
+- `darwin-installer` input (macOS only): selects `homebrew` or `native`. Defaults to auto-detect (`homebrew` for pinned SDK ≥ 4.3.0 and for floating tags `staging-vN`/`production-vN`; `native` for pre-4.3.0 pinned versions). Requesting `homebrew` against a pre-4.3.0 pinned version warns and falls back to `native`.
+- `senzingsdk-token` input (macOS only): GitHub token used to clone the private staging Homebrew tap. Defaults to `${{ github.token }}`.
+- macOS Homebrew install path: taps `Senzing/senzingsdk` (production) or `senzing-factory/senzingsdk-staging` (private) and runs `brew install --cask`. Pinned `X.Y.Z.BUILD` versions are forwarded via `HOMEBREW_SENZING_SDK_VERSION`; pinned `X.Y.Z` resolves the latest build from S3 before installing. `$HOME/senzing` is symlinked to the Homebrew install for backward compatibility. `DYLD_LIBRARY_PATH` is exported via `$GITHUB_ENV` with both the SDK's `er/lib` and Homebrew's `openssl@3/lib` so consumers don't have to wire OpenSSL up separately (libSz loads `@rpath/libssl.3.dylib` but its rpath doesn't include the Homebrew openssl@3 prefix).
 
 ## [4.0.0] - 2026-03-12
 

@@ -9,12 +9,15 @@
     "esbenp",
     "ICLA",
     "kernelsam",
+    "libcrypto",
     "Senzing",
     "senzingdata",
     "senzingrepo",
     "senzingsdk",
     "senzingstagingrepo",
-    "stackoverflow"
+    "shellcheck",
+    "stackoverflow",
+    "subactions"
   ],
   "ignorePaths": [".git/**"]
 }

@@ -3,3 +3,11 @@ rules:
     config:
       policies:
         "*": ref-pin
+
+  # The macOS test job mints a short-lived GitHub App token for the
+  # private staging Homebrew tap. Moving the App credentials behind a
+  # GitHub environment adds review/approval friction without meaningful
+  # security gain — the secret is already scoped to this workflow.
+  secrets-outside-env:
+    ignore:
+      - test-install-scripts.yaml
