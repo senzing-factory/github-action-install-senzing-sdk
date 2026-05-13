@@ -25,7 +25,7 @@ GitHub variable is `Linux`, `macOS`, or `Windows`.
        runs-on: ubuntu-latest
        steps:
          - name: Install Senzing SDK
-           uses: senzing-factory/github-action-install-senzing-sdk@v4
+           uses: senzing-factory/github-action-install-senzing-sdk@v5
            with:
              senzingsdk-version: production-v4
    ```
@@ -43,7 +43,7 @@ GitHub variable is `Linux`, `macOS`, or `Windows`.
        runs-on: ubuntu-latest
        steps:
          - name: Install Senzing SDK
-           uses: senzing-factory/github-action-install-senzing-sdk@v4
+           uses: senzing-factory/github-action-install-senzing-sdk@v5
            with:
              senzingsdk-version: 4.2.2
    ```
@@ -61,7 +61,7 @@ GitHub variable is `Linux`, `macOS`, or `Windows`.
        runs-on: ubuntu-latest
        steps:
          - name: Install Senzing SDK
-           uses: senzing-factory/github-action-install-senzing-sdk@v4
+           uses: senzing-factory/github-action-install-senzing-sdk@v5
            with:
              senzingsdk-version: 4.0.0-12345
    ```
@@ -80,7 +80,7 @@ GitHub variable is `Linux`, `macOS`, or `Windows`.
        runs-on: ubuntu-latest
        steps:
          - name: Install Senzing SDK
-           uses: senzing-factory/github-action-install-senzing-sdk@v4
+           uses: senzing-factory/github-action-install-senzing-sdk@v5
            with:
              packages-to-install: "senzingsdk-runtime senzingsdk-setup"
              senzingsdk-version: 4.0.0
@@ -100,10 +100,31 @@ GitHub variable is `Linux`, `macOS`, or `Windows`.
        runs-on: ubuntu-latest
        steps:
          - name: Install Senzing SDK
-           uses: senzing-factory/github-action-install-senzing-sdk@v4
+           uses: senzing-factory/github-action-install-senzing-sdk@v5
            with:
              senzingsdk-version: 4.2.2
              senzingsdk-repository: production
+   ```
+
+1. An example installing the latest staging build on macOS via the
+   private Homebrew tap. The default `github.token` only authenticates
+   against the calling repo; cross-org callers must pass a PAT with
+   read access to `senzing-factory/homebrew-senzingsdk-staging`:
+
+   ```yaml
+   name: install senzing example
+
+   on: [push]
+
+   jobs:
+     build:
+       runs-on: macos-latest
+       steps:
+         - name: Install Senzing SDK
+           uses: senzing-factory/github-action-install-senzing-sdk@v5
+           with:
+             senzingsdk-version: staging-v4
+             senzingsdk-token: ${{ secrets.SENZINGSDK_STAGING_TOKEN }}
    ```
 
 ### Inputs
@@ -151,6 +172,22 @@ Optional S3 repository override for senzing packages outside of staging and prod
 #### senzingsdk-repository-package (Linux only)
 
 Optional repository package override for senzing packages outside of staging and production.
+
+#### darwin-installer (macOS only)
+
+Select the install backend for macOS.
+
+- `homebrew` — install via Homebrew tap (`Senzing/senzingsdk` for production, `senzing-factory/senzingsdk-staging` for staging). Supports SDK 4.3.0 and higher only. The cask still pulls the `.dmg` from S3 — the difference is that brew manages the install, dependencies (openssl@3, sqlite), and lifecycle.
+- `native` — direct `.dmg` download + `hdiutil` + `cp` (the v4 macOS behavior). Required for SDK versions earlier than 4.3.0.
+- (empty, default) — auto-detect: `homebrew` for pinned versions ≥ 4.3.0; `native` for pinned versions below 4.3.0 and for floating tags (`staging-v4`, `production-v4`). The floating-tag default is `native` until 4.3.0 is live in both Homebrew taps.
+
+If `homebrew` is requested with a pre-4.3.0 pinned version, the script warns and falls back to `native`.
+
+#### senzingsdk-token (macOS only)
+
+GitHub token used to clone the private staging Homebrew tap (`senzing-factory/homebrew-senzingsdk-staging`) when installing via `homebrew` from staging. Defaults to `${{ github.token }}`.
+
+`github.token` only has access to the workflow's own repo, so callers in other orgs must supply a PAT with read access to the staging tap or staging homebrew installs will fail.
 
 [RUNNER_OS]: https://docs.github.com/en/actions/learn-github-actions/variables#default-environment-variables
 [system install]: https://github.com/senzing-garage/knowledge-base/blob/main/WHATIS/senzing-system-installation.md

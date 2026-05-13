@@ -10,6 +10,10 @@ trap 'rm -f /tmp/staging-versions /tmp/senzingsdk.dmg' EXIT
 #   SENZING_INSTALL_VERSION
 #     one of: production-v<X>, staging-v<X>
 #             X.Y.Z, X.Y.Z.ABCDE
+#   SENZINGSDK_REPOSITORY (optional)
+#   SENZINGSDK_REPOSITORY_PATH (optional)
+#   DARWIN_INSTALLER (optional: native, homebrew)
+#   SENZINGSDK_TOKEN (optional, required for homebrew + staging)
 ############################################
 configure-vars() {
 
@@ -18,24 +22,33 @@ configure-vars() {
   STAGING_URI="s3://senzing-staging-osx/"
   STAGING_URL="https://senzing-staging-osx.s3.amazonaws.com/"
 
+  PRODUCTION_TAP="Senzing/senzingsdk"
+  PRODUCTION_CASK="senzingsdk"
+  STAGING_TAP="senzing-factory/senzingsdk-staging"
+  STAGING_TAP_REPO="senzing-factory/homebrew-senzingsdk-staging"
+  STAGING_CASK="senzingsdk-staging"
+
   # Phase 1: Determine repository
   if [ -n "$SENZINGSDK_REPOSITORY_PATH" ]; then
 
     echo "[INFO] install senzingsdk from supplied repository"
     SENZINGSDK_URI="s3://$SENZINGSDK_REPOSITORY_PATH/"
     SENZINGSDK_URL="https://$SENZINGSDK_REPOSITORY_PATH.s3.amazonaws.com/"
+    REPO_KIND="custom"
 
   elif [[ "$SENZING_INSTALL_VERSION" =~ ^production-v[0-9]+$ ]]; then
 
     echo "[INFO] install senzingsdk from production"
     SENZINGSDK_URI="$PRODUCTION_URI"
     SENZINGSDK_URL="$PRODUCTION_URL"
+    REPO_KIND="production"
 
   elif [[ "$SENZING_INSTALL_VERSION" =~ ^staging-v[0-9]+$ ]]; then
 
     echo "[INFO] install senzingsdk from staging"
     SENZINGSDK_URI="$STAGING_URI"
     SENZINGSDK_URL="$STAGING_URL"
+    REPO_KIND="staging"
 
   elif [[ "$SENZING_INSTALL_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+ ]]; then
 
@@ -44,9 +57,11 @@ configure-vars() {
     if [[ "$REPO" == "production" ]]; then
       SENZINGSDK_URI="$PRODUCTION_URI"
       SENZINGSDK_URL="$PRODUCTION_URL"
+      REPO_KIND="production"
     else
       SENZINGSDK_URI="$STAGING_URI"
       SENZINGSDK_URL="$STAGING_URL"
+      REPO_KIND="staging"
     fi
 
   else
@@ -64,14 +79,71 @@ configure-vars() {
   echo "[INFO] major version is: $MAJOR_VERSION"
   is-major-version-greater-than-3
 
-  # Phase 3: Determine artifact to download
-  if [[ "$SENZING_INSTALL_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]{5}$ ]]; then
-    determine-dmg-for-version
-  elif [[ "$SENZING_INSTALL_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-    determine-latest-dmg-for-semver
+  # Phase 3: Determine installer (native vs homebrew)
+  determine-installer
+
+  # Phase 4: Determine artifact / pin version
+  if [[ "$DARWIN_INSTALLER" == "native" ]]; then
+    if [[ "$SENZING_INSTALL_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]{5}$ ]]; then
+      determine-dmg-for-version
+    elif [[ "$SENZING_INSTALL_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+      determine-latest-dmg-for-semver
+    else
+      determine-latest-dmg-for-major-version
+    fi
   else
-    determine-latest-dmg-for-major-version
+    determine-homebrew-version
   fi
+
+}
+
+############################################
+# determine-installer
+# GLOBALS:
+#   DARWIN_INSTALLER (input/output)
+#   SENZING_INSTALL_VERSION
+#   SENZINGSDK_REPOSITORY_PATH
+############################################
+determine-installer() {
+
+  if [[ -n "$DARWIN_INSTALLER" && "$DARWIN_INSTALLER" != "homebrew" && "$DARWIN_INSTALLER" != "native" ]]; then
+    echo "[ERROR] invalid darwin-installer '$DARWIN_INSTALLER'; must be 'homebrew' or 'native'"
+    exit 1
+  fi
+
+  local detected
+  if [[ "$SENZING_INSTALL_VERSION" =~ ^([0-9]+)\.([0-9]+)\.[0-9]+ ]]; then
+    local major="${BASH_REMATCH[1]}"
+    local minor="${BASH_REMATCH[2]}"
+    if [[ "$major" -gt 4 ]] || { [[ "$major" -eq 4 ]] && [[ "$minor" -ge 3 ]]; }; then
+      detected="homebrew"
+    else
+      detected="native"
+    fi
+  else
+    # Floating tag (staging-vN / production-vN). Default to native until
+    # 4.3.0 is live in both Homebrew taps; callers can opt into homebrew
+    # explicitly via darwin-installer=homebrew.
+    detected="native"
+  fi
+
+  if [[ -z "$DARWIN_INSTALLER" ]]; then
+    DARWIN_INSTALLER="$detected"
+    echo "[INFO] auto-detected darwin-installer: $DARWIN_INSTALLER"
+  elif [[ "$DARWIN_INSTALLER" == "homebrew" && "$detected" == "native" && "$SENZING_INSTALL_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+ ]]; then
+    echo "[WARN] darwin-installer=homebrew requested but version $SENZING_INSTALL_VERSION is pre-4.3.0"
+    echo "[WARN] homebrew install is supported for SDK 4.3.0+ only; falling back to native"
+    DARWIN_INSTALLER="native"
+  else
+    echo "[INFO] darwin-installer: $DARWIN_INSTALLER"
+  fi
+
+  if [[ "$DARWIN_INSTALLER" == "homebrew" && -n "$SENZINGSDK_REPOSITORY_PATH" ]]; then
+    echo "[ERROR] senzingsdk-repository-path is not supported with darwin-installer=homebrew; use darwin-installer=native"
+    exit 1
+  fi
+
+  export DARWIN_INSTALLER
 
 }
 
@@ -150,6 +222,123 @@ determine-dmg-for-version() {
 }
 
 ############################################
+# determine-homebrew-version
+# GLOBALS:
+#   SENZING_INSTALL_VERSION
+#   SENZINGSDK_URI
+#   HOMEBREW_PIN_VERSION (output)
+#     empty for floating tags (cask resolves latest itself)
+#     X.Y.Z.BUILD otherwise (exported via HOMEBREW_SENZING_SDK_VERSION)
+############################################
+determine-homebrew-version() {
+
+  if [[ "$SENZING_INSTALL_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]{5}$ ]]; then
+    HOMEBREW_PIN_VERSION="$SENZING_INSTALL_VERSION"
+    echo "[INFO] pinning homebrew install to $HOMEBREW_PIN_VERSION"
+  elif [[ "$SENZING_INSTALL_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+    aws s3 ls "$SENZINGSDK_URI" --recursive --no-sign-request | grep -o -E '[^ ]+\.dmg$' > /tmp/staging-versions
+    local latest
+    latest=$(grep "_${SENZING_INSTALL_VERSION}\." /tmp/staging-versions | sort -r | head -n 1) || true
+    rm -f /tmp/staging-versions
+    if [ -z "$latest" ]; then
+      echo "[ERROR] no build found for semantic version $SENZING_INSTALL_VERSION"
+      exit 1
+    fi
+    HOMEBREW_PIN_VERSION=$(echo "$latest" | sed -E 's/^senzingsdk_(.+)\.dmg$/\1/')
+    echo "[INFO] resolved $SENZING_INSTALL_VERSION to homebrew pin version $HOMEBREW_PIN_VERSION"
+  else
+    HOMEBREW_PIN_VERSION=""
+    echo "[INFO] no homebrew pin version; cask will resolve latest"
+  fi
+
+}
+
+############################################
+# install-via-homebrew
+# GLOBALS:
+#   REPO_KIND
+#   HOMEBREW_PIN_VERSION
+#   SENZINGSDK_TOKEN
+############################################
+install-via-homebrew() {
+
+  local cask
+  case "$REPO_KIND" in
+    production)
+      cask="$PRODUCTION_CASK"
+      echo "[INFO] brew tap $PRODUCTION_TAP"
+      brew tap "$PRODUCTION_TAP"
+      ;;
+    staging)
+      cask="$STAGING_CASK"
+      if [ -z "$SENZINGSDK_TOKEN" ]; then
+        echo "[ERROR] senzingsdk-token is required for homebrew installs from the staging tap (private repo $STAGING_TAP_REPO)"
+        exit 1
+      fi
+      echo "[INFO] brew tap $STAGING_TAP (with token)"
+      brew tap "$STAGING_TAP" "https://x-access-token:${SENZINGSDK_TOKEN}@github.com/${STAGING_TAP_REPO}.git"
+      ;;
+    *)
+      echo "[ERROR] unsupported repository '$REPO_KIND' for homebrew install"
+      exit 1
+      ;;
+  esac
+
+  export HOMEBREW_SENZING_ACCEPT_EULA="i_accept_the_senzing_eula"
+  if [ -n "$HOMEBREW_PIN_VERSION" ]; then
+    export HOMEBREW_SENZING_SDK_VERSION="$HOMEBREW_PIN_VERSION"
+    echo "[INFO] brew install --cask $cask (pinned to $HOMEBREW_PIN_VERSION)"
+  else
+    echo "[INFO] brew install --cask $cask (latest)"
+  fi
+  brew install --cask "$cask"
+
+  link-homebrew-prefix
+  publish-homebrew-env
+
+}
+
+############################################
+# link-homebrew-prefix
+# Symlink $HOME/senzing -> $(brew --prefix)/opt/senzing so that
+# verify-installation and downstream consumers expecting the
+# native install path keep working.
+############################################
+link-homebrew-prefix() {
+
+  local brew_prefix brew_senzing
+  brew_prefix="$(brew --prefix)"
+  brew_senzing="$brew_prefix/opt/senzing"
+
+  if [ ! -d "$brew_senzing" ]; then
+    echo "[ERROR] expected homebrew install target $brew_senzing not found"
+    exit 1
+  fi
+
+  if [ -e "$HOME/senzing" ] || [ -L "$HOME/senzing" ]; then
+    rm -rf "$HOME/senzing"
+  fi
+  ln -s "$brew_senzing" "$HOME/senzing"
+  echo "[INFO] symlinked $HOME/senzing -> $brew_senzing"
+
+}
+
+############################################
+# publish-homebrew-env
+# Forward SDK env vars to subsequent workflow steps.
+############################################
+publish-homebrew-env() {
+
+  local senzing_root="$HOME/senzing/er"
+  {
+    echo "SENZING_ROOT=$senzing_root"
+    echo "DYLD_LIBRARY_PATH=${senzing_root}/lib:${DYLD_LIBRARY_PATH:-}"
+    echo "PATH=${senzing_root}/bin:${PATH}"
+  } >> "${GITHUB_ENV:-/dev/null}"
+
+}
+
+############################################
 # download-dmg
 # GLOBALS:
 #   SENZINGSDK_DMG_URL
@@ -163,11 +352,11 @@ download-dmg() {
 
 ############################################
 # install-openssl
-# Temporary workaround: SDK DMG no longer
-# bundles OpenSSL 3 (will ship as a Homebrew
-# dependency once the brew install path is
-# ready). Remove when switching to brew
-# install --cask senzing-sdk.
+# Temporary workaround for native installs: SDK
+# DMG no longer bundles OpenSSL 3. The Homebrew
+# cask declares openssl@3 as a formula
+# dependency, so this is only needed on the
+# native path.
 ############################################
 install-openssl() {
 
@@ -223,7 +412,13 @@ verify-installation() {
 ############################################
 
 configure-vars
-download-dmg
-install-senzing
-install-openssl
+
+if [[ "$DARWIN_INSTALLER" == "homebrew" ]]; then
+  install-via-homebrew
+else
+  download-dmg
+  install-senzing
+  install-openssl
+fi
+
 verify-installation
