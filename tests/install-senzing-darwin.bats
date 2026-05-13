@@ -51,16 +51,16 @@ setup() {
   [ "$DARWIN_INSTALLER" = "homebrew" ]
 }
 
-@test "auto-detect: floating staging-v4 -> native (transition default)" {
+@test "auto-detect: floating staging-v4 -> homebrew" {
   SENZING_INSTALL_VERSION="staging-v4"
   determine-installer >/dev/null 2>&1
-  [ "$DARWIN_INSTALLER" = "native" ]
+  [ "$DARWIN_INSTALLER" = "homebrew" ]
 }
 
-@test "auto-detect: floating production-v4 -> native (transition default)" {
+@test "auto-detect: floating production-v4 -> homebrew" {
   SENZING_INSTALL_VERSION="production-v4"
   determine-installer >/dev/null 2>&1
-  [ "$DARWIN_INSTALLER" = "native" ]
+  [ "$DARWIN_INSTALLER" = "homebrew" ]
 }
 
 # ---------------------------------------------------------------------------

@@ -179,7 +179,7 @@ Select the install backend for macOS.
 
 - `homebrew` — install via Homebrew tap (`Senzing/senzingsdk` for production, `senzing-factory/senzingsdk-staging` for staging). Supports SDK 4.3.0 and higher only. The cask still pulls the `.dmg` from S3 — the difference is that Homebrew manages the install, dependencies (`openssl@3`, SQLite), and lifecycle.
 - `native` — direct `.dmg` download + `hdiutil` + `cp` (the v4 macOS behavior). Required for SDK versions earlier than 4.3.0.
-- (empty, default) — auto-detect: `homebrew` for pinned versions ≥ 4.3.0; `native` for pinned versions below 4.3.0 and for floating tags (`staging-v4`, `production-v4`). The floating-tag default is `native` until 4.3.0 is live in both Homebrew taps.
+- (empty, default) — auto-detect: `homebrew` for pinned versions ≥ 4.3.0 and for floating tags (`staging-v4`, `production-v4`); `native` for pinned versions below 4.3.0.
 
 If `homebrew` is requested with a pre-4.3.0 pinned version, the script warns and falls back to `native`.
 

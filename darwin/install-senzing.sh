@@ -121,10 +121,10 @@ determine-installer() {
       detected="native"
     fi
   else
-    # Floating tag (staging-vN / production-vN). Default to native until
-    # 4.3.0 is live in both Homebrew taps; callers can opt into homebrew
-    # explicitly via darwin-installer=homebrew.
-    detected="native"
+    # Floating tag (staging-vN / production-vN). 4.3.0 is now live on
+    # the prod Homebrew tap, so float defaults to homebrew. Callers
+    # who need the legacy DMG flow can opt out via darwin-installer=native.
+    detected="homebrew"
   fi
 
   if [[ -z "$DARWIN_INSTALLER" ]]; then
@@ -357,13 +357,19 @@ link-homebrew-prefix() {
 ############################################
 # publish-homebrew-env
 # Forward SDK env vars to subsequent workflow steps.
+# libSz.dylib loads @rpath/libssl.3.dylib and @rpath/libcrypto.3.dylib
+# at runtime; the cask's `depends_on openssl@3` installs them but
+# libSz's rpath doesn't include Homebrew's openssl@3 prefix. Add it to
+# DYLD_LIBRARY_PATH so consumers don't have to wire it up themselves.
 ############################################
 publish-homebrew-env() {
 
   local senzing_root="$HOME/senzing/er"
+  local openssl_lib
+  openssl_lib="$(brew --prefix openssl@3)/lib"
   {
     echo "SENZING_ROOT=$senzing_root"
-    echo "DYLD_LIBRARY_PATH=${senzing_root}/lib${DYLD_LIBRARY_PATH:+:${DYLD_LIBRARY_PATH}}"
+    echo "DYLD_LIBRARY_PATH=${senzing_root}/lib:${openssl_lib}${DYLD_LIBRARY_PATH:+:${DYLD_LIBRARY_PATH}}"
     echo "PATH=${senzing_root}/bin:${PATH}"
   } >> "${GITHUB_ENV:-/dev/null}"
 
