@@ -10,7 +10,9 @@ setup() {
   set +e
   # shellcheck disable=SC1091
   source "${BATS_TEST_DIRNAME}/../darwin/install-senzing.sh"
-  # Reset env between tests.
+  # Reset env between tests. Every test sets SENZING_INSTALL_VERSION
+  # explicitly today, but clearing it here keeps future tests honest.
+  unset SENZING_INSTALL_VERSION
   unset DARWIN_INSTALLER
   unset SENZINGSDK_REPOSITORY
   unset SENZINGSDK_REPOSITORY_PATH

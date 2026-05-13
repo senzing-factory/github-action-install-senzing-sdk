@@ -358,28 +358,62 @@ ensure-scoop-installed() {
 install-scoop-floating() {
 
   local bucket_repo="$1"
-  local bucket_url
-  if [ "$REPO_KIND" = "staging" ]; then
-    bucket_url="https://x-access-token:${SENZINGSDK_TOKEN}@github.com/${bucket_repo}.git"
-  else
-    bucket_url="https://github.com/${bucket_repo}.git"
-  fi
-
+  local clone_url="https://github.com/${bucket_repo}.git"
   local bucket_dir="$HOME/scoop/buckets/senzingsdk"
+
   if [ -d "$bucket_dir" ]; then
     echo "[INFO] removing pre-existing scoop bucket at $bucket_dir"
     rm -rf "$bucket_dir"
   fi
   mkdir -p "$(dirname "$bucket_dir")"
   echo "[INFO] cloning $bucket_repo bucket"
-  git clone --depth 1 "$bucket_url" "$bucket_dir"
-  # Strip the token from the cloned remote so it doesn't persist.
+
   if [ "$REPO_KIND" = "staging" ]; then
-    git -C "$bucket_dir" remote set-url origin "https://github.com/${bucket_repo}.git"
+    clone-with-token "$clone_url" "$bucket_dir"
+  else
+    git clone --depth 1 "$clone_url" "$bucket_dir"
   fi
 
   echo "[INFO] scoop install senzingsdk/senzingsdk"
   scoop install senzingsdk/senzingsdk
+
+}
+
+############################################
+# clone-with-token
+# Clone a private bucket using GIT_ASKPASS so
+# the token never appears on the command line
+# or in git's error output. The cloned remote
+# URL is the public URL (no embedded token),
+# so no post-clone cleanup is needed.
+# ARGS:
+#   $1 - public clone URL
+#   $2 - destination directory
+# GLOBALS:
+#   SENZINGSDK_TOKEN (read by the askpass helper)
+############################################
+clone-with-token() {
+
+  local url="$1"
+  local dest="$2"
+  local askpass status
+  askpass=$(mktemp)
+  cat > "$askpass" <<'ASKPASS'
+#!/usr/bin/env bash
+case "$1" in
+  Username*) echo "x-access-token" ;;
+  Password*) echo "$SENZINGSDK_TOKEN" ;;
+esac
+ASKPASS
+  chmod +x "$askpass"
+  status=0
+  GIT_ASKPASS="$askpass" GIT_TERMINAL_PROMPT=0 \
+    git clone --depth 1 "$url" "$dest" || status=$?
+  rm -f "$askpass"
+  if [ "$status" -ne 0 ]; then
+    echo "[ERROR] git clone failed (exit $status)"
+    exit "$status"
+  fi
 
 }
 

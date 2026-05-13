@@ -304,16 +304,7 @@ install-via-homebrew() {
         exit 1
       fi
       echo "[INFO] brew tap $STAGING_TAP (with token)"
-      brew tap "$STAGING_TAP" "https://x-access-token:${SENZINGSDK_TOKEN}@github.com/${STAGING_TAP_REPO}.git"
-      # Strip the token from the tap's stored remote URL so it doesn't
-      # persist on disk past the tap step. The subsequent cask install
-      # reads the formula from the local clone and downloads the .dmg
-      # from public S3, so no further GitHub auth is needed.
-      local tap_dir
-      tap_dir="$(brew --repo "$STAGING_TAP")"
-      if [ -d "$tap_dir/.git" ]; then
-        git -C "$tap_dir" remote set-url origin "https://github.com/${STAGING_TAP_REPO}.git"
-      fi
+      tap-with-token "$STAGING_TAP"
       ;;
     *)
       echo "[ERROR] unsupported repository '$REPO_KIND' for homebrew install"
@@ -332,6 +323,44 @@ install-via-homebrew() {
 
   link-homebrew-prefix
   publish-homebrew-env
+
+}
+
+############################################
+# tap-with-token
+# Tap a private Homebrew tap using GIT_ASKPASS
+# so the token never appears on the command
+# line or in git's error output. brew tap with
+# no URL uses the default GitHub clone path
+# and the underlying git inherits the askpass
+# env, so credential resolution stays out of
+# any argument vector.
+# ARGS:
+#   $1 - tap name (user/name)
+# GLOBALS:
+#   SENZINGSDK_TOKEN (read by the askpass helper)
+############################################
+tap-with-token() {
+
+  local tap_name="$1"
+  local askpass status
+  askpass=$(mktemp)
+  cat > "$askpass" <<'ASKPASS'
+#!/usr/bin/env bash
+case "$1" in
+  Username*) echo "x-access-token" ;;
+  Password*) echo "$SENZINGSDK_TOKEN" ;;
+esac
+ASKPASS
+  chmod +x "$askpass"
+  status=0
+  GIT_ASKPASS="$askpass" GIT_TERMINAL_PROMPT=0 \
+    brew tap "$tap_name" || status=$?
+  rm -f "$askpass"
+  if [ "$status" -ne 0 ]; then
+    echo "[ERROR] brew tap failed (exit $status)"
+    exit "$status"
+  fi
 
 }
 
