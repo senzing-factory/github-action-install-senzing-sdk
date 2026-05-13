@@ -64,19 +64,18 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # Existing native-auto coverage.
+          # Auto-detect coverage. Floating tags now default to homebrew;
+          # pre-4.3.0 pinned still defaults to native. The staging tap
+          # is private and requires a short-lived GitHub App token
+          # (see `Mint staging tap token` step below).
           - senzingsdk-version: production-v4
           - senzingsdk-version: staging-v4
-          - senzingsdk-version: "4.2.1"
-          # Explicit homebrew rows. The production cask is public, no
-          # token needed. The staging cask is private and requires a
-          # short-lived GitHub App token (see `Mint staging tap token`
-          # step below). The pre-4.3.0 row exercises the warn+fallback.
-          - senzingsdk-version: production-v4
-            darwin-installer: homebrew
-          - senzingsdk-version: staging-v4
-            darwin-installer: homebrew
             needs-staging-token: true
+          - senzingsdk-version: "4.2.1"
+          # Explicit overrides — exercise the opt-out and warn+fallback
+          # paths so the auto-detect doesn't hide regressions.
+          - senzingsdk-version: production-v4
+            darwin-installer: native
           - senzingsdk-version: "4.2.1"
             darwin-installer: homebrew
 
