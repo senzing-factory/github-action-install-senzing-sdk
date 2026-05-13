@@ -100,11 +100,9 @@ jobs:
           owner: senzing-factory
           repositories: homebrew-senzingsdk-staging
 
-      - name: Skip when token unavailable
+      - name: Warn when token unavailable
         if: ${{ matrix.needs-staging-token && vars.SENZINGSDK_STAGING_CLIENT_ID == '' }}
-        run: |
-          echo "::warning::staging tap token unavailable in this context; skipping homebrew staging install"
-          exit 0
+        run: echo "::warning::staging tap token unavailable in this context; skipping homebrew staging install"
 
       - name: Run install script
         if: ${{ !matrix.needs-staging-token || vars.SENZINGSDK_STAGING_CLIENT_ID != '' }}

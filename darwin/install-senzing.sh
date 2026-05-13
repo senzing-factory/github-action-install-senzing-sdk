@@ -277,6 +277,15 @@ install-via-homebrew() {
       fi
       echo "[INFO] brew tap $STAGING_TAP (with token)"
       brew tap "$STAGING_TAP" "https://x-access-token:${SENZINGSDK_TOKEN}@github.com/${STAGING_TAP_REPO}.git"
+      # Strip the token from the tap's stored remote URL so it doesn't
+      # persist on disk past the tap step. The subsequent cask install
+      # reads the formula from the local clone and downloads the .dmg
+      # from public S3, so no further GitHub auth is needed.
+      local tap_dir
+      tap_dir="$(brew --repo "$STAGING_TAP")"
+      if [ -d "$tap_dir/.git" ]; then
+        git -C "$tap_dir" remote set-url origin "https://github.com/${STAGING_TAP_REPO}.git"
+      fi
       ;;
     *)
       echo "[ERROR] unsupported repository '$REPO_KIND' for homebrew install"
