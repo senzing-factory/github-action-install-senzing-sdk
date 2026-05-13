@@ -289,10 +289,10 @@ install-via-scoop() {
       ;;
     staging)
       bucket_repo="$STAGING_BUCKET"
-      if [ -z "$SENZINGSDK_TOKEN" ]; then
-        echo "[ERROR] senzingsdk-token is required for scoop installs from the staging bucket (private repo $bucket_repo)"
-        exit 1
-      fi
+      # NB: token check lives in install-scoop-floating. Pinned-version
+      # installs (install-scoop-pinned) download from public S3 staging
+      # and don't touch the private GitHub bucket, so they don't need
+      # a token.
       ;;
     *)
       echo "[ERROR] unsupported repository '$REPO_KIND' for scoop install"
@@ -369,6 +369,10 @@ install-scoop-floating() {
   echo "[INFO] cloning $bucket_repo bucket"
 
   if [ "$REPO_KIND" = "staging" ]; then
+    if [ -z "$SENZINGSDK_TOKEN" ]; then
+      echo "[ERROR] senzingsdk-token is required for floating-tag scoop installs from the staging bucket (private repo $bucket_repo)"
+      exit 1
+    fi
     clone-with-token "$clone_url" "$bucket_dir"
   else
     git clone --depth 1 "$clone_url" "$bucket_dir"
