@@ -351,11 +351,21 @@ tap-with-token() {
   local tap_name="$1"
   local match_url="https://github.com/"
   local auth_url="https://x-access-token:${SENZINGSDK_TOKEN}@github.com/"
+  local cleanup="git config --global --unset \"url.${auth_url}.insteadOf\" 2>/dev/null || true"
+
+  # Make sure the credential is removed from ~/.gitconfig even if brew tap
+  # is killed mid-flight by SIGINT/SIGTERM (Ctrl-C on a dev machine). RETURN
+  # handles normal exit from the function; the explicit INT/TERM unset at
+  # the bottom prevents the signal traps from leaking into later functions.
+  # shellcheck disable=SC2064  # intentional: capture $cleanup expansion now,
+  # so the trap fires with the right url even if locals have gone out of scope.
+  trap "$cleanup" RETURN INT TERM
 
   git config --global "url.${auth_url}.insteadOf" "$match_url"
   local status=0
   brew tap "$tap_name" || status=$?
-  git config --global --unset "url.${auth_url}.insteadOf" 2>/dev/null || true
+
+  trap - INT TERM
 
   if [ "$status" -ne 0 ]; then
     echo "[ERROR] brew tap failed (exit $status)"
