@@ -368,6 +368,9 @@ tap-with-token() {
   trap - INT TERM
 
   if [ "$status" -ne 0 ]; then
+    # `exit` skips RETURN traps, so unset the insteadOf entry explicitly
+    # before bailing — otherwise the auth URL stays in ~/.gitconfig.
+    eval "$cleanup"
     echo "[ERROR] brew tap failed (exit $status)"
     exit "$status"
   fi
