@@ -97,8 +97,8 @@ jobs:
         with:
           # `app-id` accepts either a numeric App ID or a Client ID;
           # Client ID is GitHub's preferred forward-looking identifier.
-          app-id: ${{ secrets.SENZINGSDK_STAGING_CLIENT_ID }}
-          private-key: ${{ secrets.SENZINGSDK_STAGING_PRIVATE_KEY }}
+          client-id: ${{ secrets.SENZINGSDK_STAGING_CLIENT_ID }}
+          private-key: ${{ secrets.SENZINGSDK_STAGING_APP_KEY }}
           owner: senzing-factory
           repositories: homebrew-senzingsdk-staging
         continue-on-error: ${{ github.event.pull_request.head.repo.fork == true }}
@@ -158,8 +158,8 @@ jobs:
         with:
           # `app-id` accepts either a numeric App ID or a Client ID;
           # Client ID is GitHub's preferred forward-looking identifier.
-          app-id: ${{ secrets.SENZINGSDK_STAGING_CLIENT_ID }}
-          private-key: ${{ secrets.SENZINGSDK_STAGING_PRIVATE_KEY }}
+          client-id: ${{ secrets.SENZINGSDK_STAGING_CLIENT_ID }}
+          private-key: ${{ secrets.SENZINGSDK_STAGING_APP_KEY }}
           owner: senzing-factory
           repositories: scoop-senzingsdk-staging
         continue-on-error: ${{ github.event.pull_request.head.repo.fork == true }}
