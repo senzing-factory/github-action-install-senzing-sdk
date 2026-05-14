@@ -90,7 +90,7 @@ jobs:
         # remaining rows still pass.
         if: ${{ matrix.needs-staging-token && vars.SENZINGSDK_STAGING_CLIENT_ID != '' }}
         id: app-token
-        uses: actions/create-github-app-token@v2
+        uses: actions/create-github-app-token@v3.1.1
         with:
           # `app-id` accepts either a numeric App ID or a Client ID;
           # Client ID is GitHub's preferred forward-looking identifier.
