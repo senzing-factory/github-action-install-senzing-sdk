@@ -11,9 +11,10 @@ inputs:
     description: Version of Senzing SDK to install
     required: true
   darwin-installer:
-    description: "Install via Homebrew tap (`homebrew`) or the native hdiutil/cp flow (`native`). Leave empty to auto-detect by version (homebrew for pinned SDK >= 4.3.0; native otherwise, including floating tags)."
+    description: "Install via Homebrew tap (`homebrew`) or the native hdiutil/cp flow (`native`). Leave empty to auto-detect by version (homebrew for pinned SDK >= 4.3.0 and floating tags; native for pre-4.3.0 pinned versions)."
   senzingsdk-token:
     description: "GitHub token used to clone the private staging Homebrew tap. Required when installing via homebrew from the staging tap."
+    default: ${{ github.token }}
 
 runs:
   using: composite

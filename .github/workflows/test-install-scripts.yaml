@@ -13,7 +13,7 @@ permissions: {}
 
 jobs:
   test-unit:
-    name: "Unit: darwin dispatch (bats)"
+    name: "Unit: install dispatch (bats)"
     permissions:
       contents: read
     runs-on: ubuntu-latest
@@ -112,7 +112,7 @@ jobs:
         run: bash darwin/install-senzing.sh
 
   test-windows:
-    name: "Windows: ${{ matrix.senzingsdk-version }}"
+    name: "Windows: ${{ matrix.senzingsdk-version }} (${{ matrix.windows-installer || 'auto' }})"
     permissions:
       contents: read
     runs-on: windows-latest
@@ -120,7 +120,23 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        senzingsdk-version: [production-v4, staging-v4, "4.2.1"]
+        include:
+          # Required-by-branch-protection: floating-tag installs via
+          # the public prod bucket and the private staging bucket.
+          # Job names must remain `Windows: <version> (scoop)`.
+          - senzingsdk-version: production-v4
+            windows-installer: scoop
+          - senzingsdk-version: staging-v4
+            windows-installer: scoop
+            needs-staging-token: true
+          # Pre-4.3.0 auto-detect goes to native; auto-detect of
+          # floating tags is covered by the bats unit tests.
+          - senzingsdk-version: "4.2.1"
+          # Explicit overrides — opt-out and warn+fallback paths.
+          - senzingsdk-version: production-v4
+            windows-installer: native
+          - senzingsdk-version: "4.2.1"
+            windows-installer: scoop
 
     steps:
       - name: Checkout repository
@@ -128,8 +144,29 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Mint staging bucket token
+        # Skip when secrets aren't available (fork PRs) so the
+        # remaining rows still pass.
+        if: ${{ matrix.needs-staging-token && vars.SENZINGSDK_STAGING_CLIENT_ID != '' }}
+        id: app-token
+        uses: actions/create-github-app-token@v2
+        with:
+          # `app-id` accepts either a numeric App ID or a Client ID;
+          # Client ID is GitHub's preferred forward-looking identifier.
+          app-id: ${{ vars.SENZINGSDK_STAGING_CLIENT_ID }}
+          private-key: ${{ secrets.SENZINGSDK_STAGING_PRIVATE_KEY }}
+          owner: senzing-factory
+          repositories: scoop-senzingsdk-staging
+
+      - name: Warn when token unavailable
+        if: ${{ matrix.needs-staging-token && vars.SENZINGSDK_STAGING_CLIENT_ID == '' }}
+        run: echo "::warning::staging bucket token unavailable in this context; skipping scoop staging install"
+
       - name: Run install script
+        if: ${{ !matrix.needs-staging-token || vars.SENZINGSDK_STAGING_CLIENT_ID != '' }}
         env:
           SENZING_INSTALL_VERSION: ${{ matrix.senzingsdk-version }}
+          WINDOWS_INSTALLER: ${{ matrix.windows-installer }}
+          SENZINGSDK_TOKEN: ${{ steps.app-token.outputs.token }}
         shell: bash
         run: bash windows/install-senzing.sh
