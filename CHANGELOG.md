@@ -8,11 +8,15 @@ and this project adheres to [Semantic Versioning].
 
 ## [Unreleased]
 
-### Changed in Unreleased
+-
+
+## [5.0.0] - 2026-05-14
+
+### Changed in 5.0.0
 
 - **Breaking:** root action now references the `@v5` internal subactions. Callers must pin to `@v5` (or `@main`) — `@v4` users keep the old DMG-only behavior on macOS.
 
-### Added in Unreleased
+### Added in 5.0.0
 
 - `darwin-installer` input (macOS only): selects `homebrew` or `native`. Defaults to auto-detect (`homebrew` for pinned SDK ≥ 4.3.0 and for floating tags `staging-vN`/`production-vN`; `native` for pre-4.3.0 pinned versions). Requesting `homebrew` against a pre-4.3.0 pinned version warns and falls back to `native`.
 - `senzingsdk-token` input (macOS and Windows): GitHub token used to clone the private staging Homebrew tap (macOS) or Scoop bucket (Windows). Defaults to `${{ github.token }}`.
