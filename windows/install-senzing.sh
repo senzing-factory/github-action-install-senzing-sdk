@@ -478,7 +478,9 @@ install-scoop-pinned() {
 JSON
 
   echo "[INFO] scoop install from pinned manifest at $manifest_path"
-  scoop install "$manifest_path"
+  # Scoop runs as PowerShell; pass it a Windows-native manifest path
+  # so we don't rely on MSYS2 argument auto-conversion through its shim.
+  scoop install "$(cygpath -m "$manifest_path")"
 
 }
 
@@ -522,7 +524,9 @@ publish-scoop-env() {
   # PATH additions belong in $GITHUB_PATH (one dir per line). Writing
   # PATH=... to $GITHUB_ENV would freeze a snapshot of $PATH and clobber
   # any modifications other steps (or the runner) make in between.
-  echo "${senzing_root}/lib" >> "${GITHUB_PATH:-/dev/null}"
+  # Use a Windows-native path so non-MSYS2 tools in subsequent steps
+  # don't have to interpret a POSIX-style path.
+  cygpath -w "${senzing_root}/lib" >> "${GITHUB_PATH:-/dev/null}"
 
 }
 
