@@ -2,7 +2,7 @@
 set -eo pipefail
 
 # Clean up temp files on exit
-trap 'rm -f /tmp/staging-versions senzingsdk.zip /tmp/senzingsdk-pinned.json /tmp/senzingsdk-pinned.zip' EXIT
+trap 'rm -f /tmp/staging-versions senzingsdk.zip /tmp/senzingsdk.json /tmp/senzingsdk-pinned.zip' EXIT
 
 ############################################
 # configure-vars
@@ -453,7 +453,11 @@ install-scoop-pinned() {
   # path is rooted under a top-level `senzing/` directory. If the
   # archive's internal structure ever changes, this needs to be
   # updated in lockstep with the bucket manifests.
-  local manifest_path="/tmp/senzingsdk-pinned.json"
+  #
+  # The manifest filename must be `senzingsdk.json` — scoop derives
+  # the installed app name from the basename, and link-scoop-prefix /
+  # verify-installation both look up `~/scoop/apps/senzingsdk/current`.
+  local manifest_path="/tmp/senzingsdk.json"
   cat > "$manifest_path" <<JSON
 {
   "version": "${SCOOP_PIN_VERSION}",

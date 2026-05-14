@@ -86,25 +86,29 @@ jobs:
           persist-credentials: false
 
       - name: Mint staging tap token
-        # Skip when secrets aren't available (fork PRs) so the
-        # remaining rows still pass.
-        if: ${{ matrix.needs-staging-token && vars.SENZINGSDK_STAGING_CLIENT_ID != '' }}
+        # Attempt the mint unconditionally for staging-token rows.
+        # `continue-on-error` only swallows failure on fork PRs where
+        # org secrets aren't available; for internal runs (main push,
+        # internal PRs, workflow_dispatch) a missing secret is a real
+        # misconfig and should fail loudly.
+        if: ${{ matrix.needs-staging-token }}
         id: app-token
         uses: actions/create-github-app-token@v3.1.1
         with:
           # `app-id` accepts either a numeric App ID or a Client ID;
           # Client ID is GitHub's preferred forward-looking identifier.
-          app-id: ${{ vars.SENZINGSDK_STAGING_CLIENT_ID }}
-          private-key: ${{ secrets.SENZINGSDK_STAGING_PRIVATE_KEY }}
+          client-id: ${{ secrets.SENZINGSDK_STAGING_CLIENT_ID }}
+          private-key: ${{ secrets.SENZINGSDK_STAGING_APP_KEY }}
           owner: senzing-factory
           repositories: homebrew-senzingsdk-staging
+        continue-on-error: ${{ github.event.pull_request.head.repo.fork == true }}
 
-      - name: Warn when token unavailable
-        if: ${{ matrix.needs-staging-token && vars.SENZINGSDK_STAGING_CLIENT_ID == '' }}
-        run: echo "::warning::staging tap token unavailable in this context; skipping homebrew staging install"
+      - name: Warn when token unavailable (fork PR)
+        if: ${{ matrix.needs-staging-token && steps.app-token.outcome != 'success' && github.event.pull_request.head.repo.fork == true }}
+        run: echo "::warning::staging tap token unavailable for fork PR; skipping homebrew staging install"
 
       - name: Run install script
-        if: ${{ !matrix.needs-staging-token || vars.SENZINGSDK_STAGING_CLIENT_ID != '' }}
+        if: ${{ !matrix.needs-staging-token || steps.app-token.outcome == 'success' }}
         env:
           SENZING_INSTALL_VERSION: ${{ matrix.senzingsdk-version }}
           DARWIN_INSTALLER: ${{ matrix.darwin-installer }}
@@ -145,25 +149,27 @@ jobs:
           persist-credentials: false
 
       - name: Mint staging bucket token
-        # Skip when secrets aren't available (fork PRs) so the
-        # remaining rows still pass.
-        if: ${{ matrix.needs-staging-token && vars.SENZINGSDK_STAGING_CLIENT_ID != '' }}
+        # See macOS job above: continue-on-error only soft-fails on
+        # fork PRs (no secret access). Internal runs that hit a missing
+        # secret fail loudly so misconfig is caught.
+        if: ${{ matrix.needs-staging-token }}
         id: app-token
-        uses: actions/create-github-app-token@v2
+        uses: actions/create-github-app-token@v3.1.1
         with:
           # `app-id` accepts either a numeric App ID or a Client ID;
           # Client ID is GitHub's preferred forward-looking identifier.
-          app-id: ${{ vars.SENZINGSDK_STAGING_CLIENT_ID }}
-          private-key: ${{ secrets.SENZINGSDK_STAGING_PRIVATE_KEY }}
+          client-id: ${{ secrets.SENZINGSDK_STAGING_CLIENT_ID }}
+          private-key: ${{ secrets.SENZINGSDK_STAGING_APP_KEY }}
           owner: senzing-factory
           repositories: scoop-senzingsdk-staging
+        continue-on-error: ${{ github.event.pull_request.head.repo.fork == true }}
 
-      - name: Warn when token unavailable
-        if: ${{ matrix.needs-staging-token && vars.SENZINGSDK_STAGING_CLIENT_ID == '' }}
-        run: echo "::warning::staging bucket token unavailable in this context; skipping scoop staging install"
+      - name: Warn when token unavailable (fork PR)
+        if: ${{ matrix.needs-staging-token && steps.app-token.outcome != 'success' && github.event.pull_request.head.repo.fork == true }}
+        run: echo "::warning::staging bucket token unavailable for fork PR; skipping scoop staging install"
 
       - name: Run install script
-        if: ${{ !matrix.needs-staging-token || vars.SENZINGSDK_STAGING_CLIENT_ID != '' }}
+        if: ${{ !matrix.needs-staging-token || steps.app-token.outcome == 'success' }}
         env:
           SENZING_INSTALL_VERSION: ${{ matrix.senzingsdk-version }}
           WINDOWS_INSTALLER: ${{ matrix.windows-installer }}

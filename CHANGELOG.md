@@ -10,6 +10,13 @@ and this project adheres to [Semantic Versioning].
 
 -
 
+## [5.0.1] - 2026-05-14
+
+### Fixed in 5.0.1
+
+- macOS staging `brew tap` failed to authenticate against the private tap. `GIT_ASKPASS` doesn't survive brew's subprocess env filter, so Git fell back to interactive prompting and exited with `could not read Username for 'https://github.com'`. `tap-with-token` now uses a temporary `git config --global url.<auth>.insteadOf <public>` rewrite around the `brew tap` call instead — Git reads `~/.gitconfig` from disk, which brew can't strip. The insteadOf entry is set immediately before `brew tap` and unset immediately after so the token's window in the config file is bounded by that single call.
+- Windows pinned scoop install left the SDK at `~/scoop/apps/senzingsdk-pinned/current` (scoop derives the app name from the manifest filename, and the temp manifest was `senzingsdk-pinned.json`). `link-scoop-prefix` and `verify-installation` both look up `~/scoop/apps/senzingsdk/current`, so the install reported success but the post-install symlink failed. Renamed the temp manifest to `/tmp/senzingsdk.json` so scoop installs as `senzingsdk`, matching the rest of the script.
+
 ## [5.0.0] - 2026-05-14
 
 ### Changed in 5.0.0

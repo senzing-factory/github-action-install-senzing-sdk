@@ -328,36 +328,49 @@ install-via-homebrew() {
 
 ############################################
 # tap-with-token
-# Tap a private Homebrew tap using GIT_ASKPASS
-# so the token never appears on the command
-# line or in git's error output. brew tap with
-# no URL uses the default GitHub clone path
-# and the underlying git inherits the askpass
-# env, so credential resolution stays out of
-# any argument vector.
+# Tap a private Homebrew tap with auth.
+#
+# `brew tap` spawns git as a subprocess, and brew filters its child
+# process environment (anything not in HOMEBREW_* tends to get dropped),
+# so GIT_ASKPASS doesn't survive the trip. The pattern that does survive
+# is `git config --global url.<auth>.insteadOf <public>`: git reads
+# ~/.gitconfig from disk, which brew can't strip.
+#
+# Set the insteadOf rewrite immediately before `brew tap` and unset
+# immediately after. The token lives in ~/.gitconfig only for the
+# duration of the tap call. On ephemeral CI runners with a ~1-hour
+# app token, the exposure window is small.
+#
 # ARGS:
 #   $1 - tap name (user/name)
 # GLOBALS:
-#   SENZINGSDK_TOKEN (read by the askpass helper)
+#   SENZINGSDK_TOKEN
 ############################################
 tap-with-token() {
 
   local tap_name="$1"
-  local askpass status
-  askpass=$(mktemp)
-  cat > "$askpass" <<'ASKPASS'
-#!/usr/bin/env bash
-case "$1" in
-  Username*) echo "x-access-token" ;;
-  Password*) echo "$SENZINGSDK_TOKEN" ;;
-esac
-ASKPASS
-  chmod +x "$askpass"
-  status=0
-  GIT_ASKPASS="$askpass" GIT_TERMINAL_PROMPT=0 \
-    brew tap "$tap_name" || status=$?
-  rm -f "$askpass"
+  local match_url="https://github.com/"
+  local auth_url="https://x-access-token:${SENZINGSDK_TOKEN}@github.com/"
+  local cleanup="git config --global --unset \"url.${auth_url}.insteadOf\" 2>/dev/null || true"
+
+  # Make sure the credential is removed from ~/.gitconfig even if brew tap
+  # is killed mid-flight by SIGINT/SIGTERM (Ctrl-C on a dev machine). RETURN
+  # handles normal exit from the function; the explicit INT/TERM unset at
+  # the bottom prevents the signal traps from leaking into later functions.
+  # shellcheck disable=SC2064  # intentional: capture $cleanup expansion now,
+  # so the trap fires with the right url even if locals have gone out of scope.
+  trap "$cleanup" RETURN INT TERM
+
+  git config --global "url.${auth_url}.insteadOf" "$match_url"
+  local status=0
+  brew tap "$tap_name" || status=$?
+
+  trap - INT TERM
+
   if [ "$status" -ne 0 ]; then
+    # `exit` skips RETURN traps, so unset the insteadOf entry explicitly
+    # before bailing — otherwise the auth URL stays in ~/.gitconfig.
+    eval "$cleanup"
     echo "[ERROR] brew tap failed (exit $status)"
     exit "$status"
   fi
