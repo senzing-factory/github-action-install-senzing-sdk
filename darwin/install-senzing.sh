@@ -131,8 +131,7 @@ determine-installer() {
     DARWIN_INSTALLER="$detected"
     echo "[INFO] auto-detected darwin-installer: $DARWIN_INSTALLER"
   elif [[ "$DARWIN_INSTALLER" == "homebrew" && "$detected" == "native" && "$SENZING_INSTALL_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+ ]]; then
-    echo "[WARN] darwin-installer=homebrew requested but version $SENZING_INSTALL_VERSION is pre-4.3.0"
-    echo "[WARN] homebrew install is supported for SDK 4.3.0+ only; falling back to native"
+    echo "::warning::darwin-installer=homebrew requested but version $SENZING_INSTALL_VERSION is pre-4.3.0; homebrew install is supported for SDK 4.3.0+ only, falling back to native"
     DARWIN_INSTALLER="native"
   else
     echo "[INFO] darwin-installer: $DARWIN_INSTALLER"
@@ -181,11 +180,14 @@ is-major-version-greater-than-3() {
 list-latest-dmg() {
 
   local pattern="$1"
+  # `|| true` only on the two greps: a "no match" (exit 1) is a
+  # legitimate empty result that callers handle. Errors from
+  # `aws s3 ls` (network, credentials) propagate via pipefail.
   aws s3 ls "$SENZINGSDK_URI" --recursive --no-sign-request \
-    | grep -o -E '[^ ]+\.dmg$' \
-    | grep "$pattern" \
+    | { grep -o -E '[^ ]+\.dmg$' || true; } \
+    | { grep "$pattern" || true; } \
     | sort -r \
-    | head -n 1 || true
+    | head -n 1
 
 }
 
@@ -267,6 +269,10 @@ determine-homebrew-version() {
     filename="${latest##*/}"
     HOMEBREW_PIN_VERSION="${filename#senzingsdk_}"
     HOMEBREW_PIN_VERSION="${HOMEBREW_PIN_VERSION%.dmg}"
+    if [[ ! "$HOMEBREW_PIN_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+      echo "[ERROR] could not parse build version from S3 filename '$filename' (expected senzingsdk_X.Y.Z.BUILD.dmg)"
+      exit 1
+    fi
     echo "[INFO] resolved $SENZING_INSTALL_VERSION to homebrew pin version $HOMEBREW_PIN_VERSION"
   else
     HOMEBREW_PIN_VERSION=""
@@ -298,16 +304,7 @@ install-via-homebrew() {
         exit 1
       fi
       echo "[INFO] brew tap $STAGING_TAP (with token)"
-      brew tap "$STAGING_TAP" "https://x-access-token:${SENZINGSDK_TOKEN}@github.com/${STAGING_TAP_REPO}.git"
-      # Strip the token from the tap's stored remote URL so it doesn't
-      # persist on disk past the tap step. The subsequent cask install
-      # reads the formula from the local clone and downloads the .dmg
-      # from public S3, so no further GitHub auth is needed.
-      local tap_dir
-      tap_dir="$(brew --repo "$STAGING_TAP")"
-      if [ -d "$tap_dir/.git" ]; then
-        git -C "$tap_dir" remote set-url origin "https://github.com/${STAGING_TAP_REPO}.git"
-      fi
+      tap-with-token "$STAGING_TAP"
       ;;
     *)
       echo "[ERROR] unsupported repository '$REPO_KIND' for homebrew install"
@@ -326,6 +323,44 @@ install-via-homebrew() {
 
   link-homebrew-prefix
   publish-homebrew-env
+
+}
+
+############################################
+# tap-with-token
+# Tap a private Homebrew tap using GIT_ASKPASS
+# so the token never appears on the command
+# line or in git's error output. brew tap with
+# no URL uses the default GitHub clone path
+# and the underlying git inherits the askpass
+# env, so credential resolution stays out of
+# any argument vector.
+# ARGS:
+#   $1 - tap name (user/name)
+# GLOBALS:
+#   SENZINGSDK_TOKEN (read by the askpass helper)
+############################################
+tap-with-token() {
+
+  local tap_name="$1"
+  local askpass status
+  askpass=$(mktemp)
+  cat > "$askpass" <<'ASKPASS'
+#!/usr/bin/env bash
+case "$1" in
+  Username*) echo "x-access-token" ;;
+  Password*) echo "$SENZINGSDK_TOKEN" ;;
+esac
+ASKPASS
+  chmod +x "$askpass"
+  status=0
+  GIT_ASKPASS="$askpass" GIT_TERMINAL_PROMPT=0 \
+    brew tap "$tap_name" || status=$?
+  rm -f "$askpass"
+  if [ "$status" -ne 0 ]; then
+    echo "[ERROR] brew tap failed (exit $status)"
+    exit "$status"
+  fi
 
 }
 
@@ -370,8 +405,11 @@ publish-homebrew-env() {
   {
     echo "SENZING_ROOT=$senzing_root"
     echo "DYLD_LIBRARY_PATH=${senzing_root}/lib:${openssl_lib}${DYLD_LIBRARY_PATH:+:${DYLD_LIBRARY_PATH}}"
-    echo "PATH=${senzing_root}/bin:${PATH}"
   } >> "${GITHUB_ENV:-/dev/null}"
+  # PATH additions belong in $GITHUB_PATH (one dir per line). Writing
+  # PATH=... to $GITHUB_ENV would freeze a snapshot of $PATH and clobber
+  # any modifications other steps (or the runner) make in between.
+  echo "${senzing_root}/bin" >> "${GITHUB_PATH:-/dev/null}"
 
 }
 
