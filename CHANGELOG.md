@@ -10,6 +10,12 @@ and this project adheres to [Semantic Versioning].
 
 -
 
+## [5.0.2] - 2026-05-20
+
+### Fixed in 5.0.2
+
+- Windows floating-tag scoop install from the private staging bucket failed with `remote: Repository not found` even when `senzingsdk-token` was correctly supplied. The token-mint half worked (issued a token scoped to `scoop-senzingsdk-staging`) but the `clone-with-token` helper was setting up `GIT_ASKPASS` to point at a `/tmp/...` shell script. The Git for Windows shim that scoop installs can't reliably exec that askpass — path format + shebang invocation both fail through the windows wrapper — so Git silently dropped to anonymous auth and got a 404 on the private repo. `clone-with-token` now uses the same `git config --global url.<auth>.insteadOf <public>` pattern as `darwin/tap-with-token`, which works because Git reads the rewrite from `~/.gitconfig` regardless of OS. The insteadOf entry is set immediately before the clone and unset immediately after; the cloned repo's remote URL is reset to the public form via `git remote set-url` so the embedded token doesn't persist in `.git/config`.
+
 ## [5.0.1] - 2026-05-14
 
 ### Fixed in 5.0.1
