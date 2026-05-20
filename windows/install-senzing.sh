@@ -385,39 +385,52 @@ install-scoop-floating() {
 
 ############################################
 # clone-with-token
-# Clone a private bucket using GIT_ASKPASS so
-# the token never appears on the command line
-# or in git's error output. The cloned remote
-# URL is the public URL (no embedded token),
-# so no post-clone cleanup is needed.
+# Clone a private bucket with auth.
+#
+# GIT_ASKPASS is unreliable on the windows-latest runner: the git shim
+# scoop bundles can't always exec a `/tmp/...` shell askpass (path-format
+# mismatch + shebang invocation through the windows wrapper). When it
+# fails, git silently drops to anonymous and the private bucket clone
+# 404s. The cross-platform pattern that's actually reliable is
+# `git config --global url.<auth>.insteadOf <public>` — git reads the
+# rewrite from ~/.gitconfig at URL-parse time, no executable askpass
+# needed. The cloned repo's remote URL is reset to the public form
+# afterward so the embedded token doesn't persist in .git/config.
+#
 # ARGS:
 #   $1 - public clone URL
 #   $2 - destination directory
 # GLOBALS:
-#   SENZINGSDK_TOKEN (read by the askpass helper)
+#   SENZINGSDK_TOKEN
 ############################################
 clone-with-token() {
 
   local url="$1"
   local dest="$2"
-  local askpass status
-  askpass=$(mktemp)
-  cat > "$askpass" <<'ASKPASS'
-#!/usr/bin/env bash
-case "$1" in
-  Username*) echo "x-access-token" ;;
-  Password*) echo "$SENZINGSDK_TOKEN" ;;
-esac
-ASKPASS
-  chmod +x "$askpass"
-  status=0
-  GIT_ASKPASS="$askpass" GIT_TERMINAL_PROMPT=0 \
-    git clone --depth 1 "$url" "$dest" || status=$?
-  rm -f "$askpass"
+  local match_url="https://github.com/"
+  local auth_url="https://x-access-token:${SENZINGSDK_TOKEN}@github.com/"
+  local cleanup="git config --global --unset \"url.${auth_url}.insteadOf\" 2>/dev/null || true"
+
+  # shellcheck disable=SC2064  # intentional: capture $cleanup expansion now
+  trap "$cleanup" RETURN INT TERM
+
+  git config --global "url.${auth_url}.insteadOf" "$match_url"
+  local status=0
+  git clone --depth 1 "$url" "$dest" || status=$?
+
+  trap - INT TERM
+
   if [ "$status" -ne 0 ]; then
+    # `exit` skips RETURN traps, so unset the insteadOf entry explicitly
+    # before bailing — otherwise the auth URL stays in ~/.gitconfig.
+    eval "$cleanup"
     echo "[ERROR] git clone failed (exit $status)"
     exit "$status"
   fi
+
+  # Reset the cloned repo's remote to the public URL so the embedded
+  # auth token isn't stored in .git/config on the runner's disk.
+  ( cd "$dest" && git remote set-url origin "$url" ) || true
 
 }
 
