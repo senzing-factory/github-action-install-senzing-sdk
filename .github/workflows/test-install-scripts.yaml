@@ -93,7 +93,7 @@ jobs:
         # misconfig and should fail loudly.
         if: ${{ matrix.needs-staging-token }}
         id: app-token
-        uses: actions/create-github-app-token@v3.1.1
+        uses: actions/create-github-app-token@v3.2.0
         with:
           # `app-id` accepts either a numeric App ID or a Client ID;
           # Client ID is GitHub's preferred forward-looking identifier.
@@ -154,7 +154,7 @@ jobs:
         # secret fail loudly so misconfig is caught.
         if: ${{ matrix.needs-staging-token }}
         id: app-token
-        uses: actions/create-github-app-token@v3.1.1
+        uses: actions/create-github-app-token@v3.2.0
         with:
           # `app-id` accepts either a numeric App ID or a Client ID;
           # Client ID is GitHub's preferred forward-looking identifier.
