@@ -665,12 +665,15 @@ install-senzingsdk() {
 
       # cmd.exe so MSYS2 doesn't munge the /a, /qn, and TARGETDIR= MSI
       # flags into POSIX path arguments. cygpath -w converts the local
-      # paths into Windows form for msiexec to accept.
-      local msi_path_win extract_dir_win msi_log
+      # paths into Windows form for msiexec to accept. No /L*v flag:
+      # msiexec runs as the workflow user but rejects log paths under
+      # MSYS2's /tmp (some MSYS2 mounts aren't visible to the Windows
+      # process); if extraction fails, msiexec writes its own log to
+      # %TEMP%\MSI*.log automatically.
+      local msi_path_win extract_dir_win
       msi_path_win=$(cygpath -w "$(pwd)/$SENZINGSDK_LOCAL_FILE")
       extract_dir_win=$(cygpath -w "$extract_dir")
-      msi_log="$extract_dir/msiexec.log"
-      cmd.exe //c "msiexec /a \"$msi_path_win\" /qn /L*v \"$(cygpath -w "$msi_log")\" TARGETDIR=\"$extract_dir_win\""
+      cmd.exe //c "msiexec /a \"$msi_path_win\" /qn TARGETDIR=\"$extract_dir_win\""
 
       # The on-disk layout after msiexec /a depends on the MSI's Directory
       # table: senzingsdk's MSI puts the SDK tree under a "Senzing"
@@ -685,7 +688,6 @@ install-senzingsdk() {
         echo "[ERROR] expected er/szBuildVersion.json inside extracted MSI"
         echo "[ERROR] but none was found. Extraction layout (depth 4):"
         find "$extract_dir" -maxdepth 4 -type d 2>/dev/null | head -n 30
-        [ -f "$msi_log" ] && tail -n 40 "$msi_log"
         rm -rf "$extract_dir"
         exit 1
       fi
