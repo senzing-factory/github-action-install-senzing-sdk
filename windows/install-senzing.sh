@@ -2,7 +2,7 @@
 set -eo pipefail
 
 # Clean up temp files on exit
-trap 'rm -f /tmp/staging-versions senzingsdk.zip /tmp/senzingsdk.json /tmp/senzingsdk-pinned.zip' EXIT
+trap 'rm -f /tmp/staging-versions senzingsdk.zip senzingsdk.msi /tmp/senzingsdk.json /tmp/senzingsdk-pinned.zip /tmp/senzingsdk-pinned.msi' EXIT
 
 ############################################
 # configure-vars
@@ -82,11 +82,11 @@ configure-vars() {
   # Phase 4: Determine artifact / pin version
   if [[ "$WINDOWS_INSTALLER" == "native" ]]; then
     if [[ "$SENZING_INSTALL_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]{5}$ ]]; then
-      determine-zip-for-version
+      determine-build-for-version
     elif [[ "$SENZING_INSTALL_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-      determine-latest-zip-for-semver
+      determine-latest-build-for-semver
     else
-      determine-latest-zip-for-major-version
+      determine-latest-build-for-major-version
     fi
   else
     determine-scoop-version
@@ -162,23 +162,40 @@ is-major-version-greater-than-3() {
 }
 
 ############################################
-# list-latest-zip
+# is-modern-build-format
+# Returns 0 if $1 >= 4.3.2 (artifact is .msi), 1 otherwise (artifact is
+# .zip). 4.3.2 is the first SDK release published only in the new format;
+# 4.3.1 and earlier still have a .zip in S3 alongside any .msi.
+# ARGS:
+#   $1 - version in X.Y.Z or X.Y.Z.BUILD form
+############################################
+is-modern-build-format() {
+
+  local v="$1"
+  local major minor patch
+  IFS='.' read -r major minor patch _ <<< "$v"
+  (( major > 4 || (major == 4 && minor > 3) || (major == 4 && minor == 3 && patch >= 2) ))
+
+}
+
+############################################
+# list-latest-build
 # Lists $SENZINGSDK_URI on S3 and returns the
-# latest zip (lexicographic sort) whose name
+# latest build (lexicographic sort) whose name
 # contains the supplied filter pattern.
 # ARGS:
 #   $1 - filter pattern passed to grep
 # GLOBALS:
 #   SENZINGSDK_URI
 ############################################
-list-latest-zip() {
+list-latest-build() {
 
   local pattern="$1"
   # `|| true` only on the two greps: a "no match" (exit 1) is a
   # legitimate empty result that callers handle. Errors from
   # `aws s3 ls` (network, credentials) propagate via pipefail.
   aws s3 ls "$SENZINGSDK_URI" --recursive --no-sign-request --region us-east-1 \
-    | { grep -o -E '[^ ]+\.zip$' || true; } \
+    | { grep -o -E '[^ ]+\.(zip|msi)$' || true; } \
     | { grep "$pattern" || true; } \
     | sort -r \
     | head -n 1
@@ -186,54 +203,64 @@ list-latest-zip() {
 }
 
 ############################################
-# determine-latest-zip-for-major-version
+# determine-latest-build-for-major-version
 # GLOBALS:
 #   MAJOR_VERSION
 #   SENZINGSDK_URL
 ############################################
-determine-latest-zip-for-major-version() {
+determine-latest-build-for-major-version() {
 
   local latest
-  latest=$(list-latest-zip "_${MAJOR_VERSION}")
+  latest=$(list-latest-build "_${MAJOR_VERSION}")
   if [ -z "$latest" ]; then
-    echo "[ERROR] no ZIP found for major version $MAJOR_VERSION"
+    echo "[ERROR] no build found for major version $MAJOR_VERSION"
     exit 1
   fi
   echo "[INFO] latest version for major version $MAJOR_VERSION is: $latest"
 
-  SENZINGSDK_ZIP_URL="$SENZINGSDK_URL$latest"
+  SENZINGSDK_BUILD_URL="$SENZINGSDK_URL$latest"
 
 }
 
 ############################################
-# determine-latest-zip-for-semver
+# determine-latest-build-for-semver
 # GLOBALS:
 #   SENZING_INSTALL_VERSION
 #   SENZINGSDK_URL
 ############################################
-determine-latest-zip-for-semver() {
+determine-latest-build-for-semver() {
 
   local latest
-  latest=$(list-latest-zip "_${SENZING_INSTALL_VERSION}\.")
+  latest=$(list-latest-build "_${SENZING_INSTALL_VERSION}\.")
   if [ -z "$latest" ]; then
-    echo "[ERROR] no ZIP found for version $SENZING_INSTALL_VERSION"
+    echo "[ERROR] no build found for version $SENZING_INSTALL_VERSION"
     exit 1
   fi
   echo "[INFO] latest build for $SENZING_INSTALL_VERSION is: $latest"
 
-  SENZINGSDK_ZIP_URL="$SENZINGSDK_URL$latest"
+  SENZINGSDK_BUILD_URL="$SENZINGSDK_URL$latest"
 
 }
 
 ############################################
-# determine-zip-for-version
+# determine-build-for-version
+# Constructs the artifact URL for an exact X.Y.Z.BUILD version. Extension
+# is derived from the version: .msi for 4.3.2+ (modern), .zip otherwise
+# (legacy). No S3 lookup needed.
 # GLOBALS:
-#   SENZING_INSTALL_VERSION
-#   SENZINGSDK_URL
+#   SENZING_INSTALL_VERSION  (X.Y.Z.BUILD)
+#   SENZINGSDK_URL           (output prefix)
+#   SENZINGSDK_BUILD_URL     (output)
 ############################################
-determine-zip-for-version() {
+determine-build-for-version() {
 
-  SENZINGSDK_ZIP_URL="$SENZINGSDK_URL"SenzingSDK_"$SENZING_INSTALL_VERSION".zip
+  local ext
+  if is-modern-build-format "$SENZING_INSTALL_VERSION"; then
+    ext="msi"
+  else
+    ext="zip"
+  fi
+  SENZINGSDK_BUILD_URL="${SENZINGSDK_URL}SenzingSDK_${SENZING_INSTALL_VERSION}.${ext}"
 
 }
 
@@ -241,32 +268,48 @@ determine-zip-for-version() {
 # determine-scoop-version
 # GLOBALS:
 #   SENZING_INSTALL_VERSION
-#   SCOOP_PIN_VERSION (output)
-#     empty for floating tags (bucket manifest resolves latest)
-#     X.Y.Z.BUILD otherwise (used to generate a pinned manifest)
+#   SCOOP_PIN_VERSION   (output) X.Y.Z.BUILD, or empty for floating tags
+#   SCOOP_PIN_FILENAME  (output) basename of S3 artifact (e.g.
+#                       "SenzingSDK_4.3.2.26159.msi"), or empty for floating tags.
+#                       install-scoop-pinned uses this to know the extension
+#                       and choose the right scoop manifest extract_dir.
 ############################################
 determine-scoop-version() {
 
   if [[ "$SENZING_INSTALL_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]{5}$ ]]; then
+    # 4-part exact build: derive extension from version, no S3 lookup.
     SCOOP_PIN_VERSION="$SENZING_INSTALL_VERSION"
-    echo "[INFO] pinning scoop install to $SCOOP_PIN_VERSION"
+    local ext
+    if is-modern-build-format "$SENZING_INSTALL_VERSION"; then
+      ext="msi"
+    else
+      ext="zip"
+    fi
+    SCOOP_PIN_FILENAME="SenzingSDK_${SENZING_INSTALL_VERSION}.${ext}"
+    echo "[INFO] pinning scoop install to $SCOOP_PIN_VERSION (file: $SCOOP_PIN_FILENAME)"
   elif [[ "$SENZING_INSTALL_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+    # 3-part semver: need an S3 lookup to discover the latest build number;
+    # the listing's broad (zip|msi) filter still surfaces the right file
+    # because at this point a given semver only has one or the other in S3.
     local latest filename
-    latest=$(list-latest-zip "_${SENZING_INSTALL_VERSION}\.")
+    latest=$(list-latest-build "_${SENZING_INSTALL_VERSION}\.")
     if [ -z "$latest" ]; then
       echo "[ERROR] no build found for semantic version $SENZING_INSTALL_VERSION"
       exit 1
     fi
     filename="${latest##*/}"
+    SCOOP_PIN_FILENAME="$filename"
     SCOOP_PIN_VERSION="${filename#SenzingSDK_}"
     SCOOP_PIN_VERSION="${SCOOP_PIN_VERSION%.zip}"
+    SCOOP_PIN_VERSION="${SCOOP_PIN_VERSION%.msi}"
     if [[ ! "$SCOOP_PIN_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-      echo "[ERROR] could not parse build version from S3 filename '$filename' (expected SenzingSDK_X.Y.Z.BUILD.zip)"
+      echo "[ERROR] could not parse build version from S3 filename '$filename' (expected SenzingSDK_X.Y.Z.BUILD.{zip,msi})"
       exit 1
     fi
-    echo "[INFO] resolved $SENZING_INSTALL_VERSION to scoop pin version $SCOOP_PIN_VERSION"
+    echo "[INFO] resolved $SENZING_INSTALL_VERSION to scoop pin $SCOOP_PIN_VERSION (file: $filename)"
   else
     SCOOP_PIN_VERSION=""
+    SCOOP_PIN_FILENAME=""
     echo "[INFO] no scoop pin version; bucket manifest will resolve latest"
   fi
 
@@ -436,37 +479,55 @@ clone-with-token() {
 
 ############################################
 # install-scoop-pinned
-# Pinned-version install: download the zip
-# once, generate a manifest pointing at the
-# local file (avoids a second download via
-# the HTTPS URL), and `scoop install` it.
+# Pinned-version install: download the artifact once, generate a manifest
+# pointing at the local file (avoids a second download via the HTTPS URL),
+# and `scoop install` it.
+#
+# Supports both legacy .zip and current .msi artifacts. The two have
+# different internal layouts, so the generated manifest's `extract_dir`
+# must match the artifact:
+#   .zip  →  extract_dir: "senzing"          (legacy top-level senzing/ tree)
+#   .msi  →  extract_dir: "PFiles64/Senzing" (matches staging bucket manifest)
+#
 # GLOBALS:
 #   SENZINGSDK_URL
 #   SCOOP_PIN_VERSION
+#   SCOOP_PIN_FILENAME  (e.g. SenzingSDK_4.3.2.26159.msi)
 ############################################
 install-scoop-pinned() {
 
-  local zip_url zip_path zip_sha zip_path_win
-  zip_url="${SENZINGSDK_URL}SenzingSDK_${SCOOP_PIN_VERSION}.zip"
-  zip_path="/tmp/senzingsdk-pinned.zip"
+  local build_url build_path build_sha build_path_win ext extract_dir
+  ext="${SCOOP_PIN_FILENAME##*.}"
+  build_url="${SENZINGSDK_URL}${SCOOP_PIN_FILENAME}"
+  build_path="/tmp/senzingsdk-pinned.${ext}"
 
-  echo "[INFO] downloading pinned zip"
-  curl --fail --silent --show-error --output "$zip_path" "$zip_url"
-  zip_sha=$(sha256sum "$zip_path" | awk '{print $1}')
-  # Don't rm the zip here: the generated manifest points at it as a
+  echo "[INFO] downloading pinned ${ext}"
+  curl --fail --silent --show-error --output "$build_path" "$build_url"
+  build_sha=$(sha256sum "$build_path" | awk '{print $1}')
+  # Don't rm the artifact here: the generated manifest points at it as a
   # file:// URL so scoop reuses the local copy. EXIT trap removes it.
 
   # Scoop runs as native PowerShell and doesn't understand MSYS2
   # virtual paths like /tmp/..., so convert to a Windows-native path
   # (forward slashes) before embedding in the file:// URL.
-  zip_path_win=$(cygpath -m "$zip_path")
+  build_path_win=$(cygpath -m "$build_path")
 
-  # `extract_dir: senzing` mirrors the prod/staging bucket manifests
-  # and matches the current SenzingSDK_X.Y.Z.BUILD.zip layout: every
-  # path is rooted under a top-level `senzing/` directory. If the
-  # archive's internal structure ever changes, this needs to be
-  # updated in lockstep with the bucket manifests.
-  #
+  case "$ext" in
+    zip)
+      # Legacy zip layout: top-level senzing/ directory inside the archive.
+      extract_dir="senzing"
+      ;;
+    msi)
+      # MSI layout matches the staging bucket manifest's extract_dir.
+      # JSON-escape the backslash (scoop reads PFiles64\Senzing).
+      extract_dir="PFiles64\\\\Senzing"
+      ;;
+    *)
+      echo "[ERROR] unsupported pinned artifact extension: $ext"
+      exit 1
+      ;;
+  esac
+
   # The manifest filename must be `senzingsdk.json` — scoop derives
   # the installed app name from the basename, and link-scoop-prefix /
   # verify-installation both look up `~/scoop/apps/senzingsdk/current`.
@@ -480,11 +541,11 @@ install-scoop-pinned() {
     "identifier": "Proprietary",
     "url": "https://senzing.com/software-license-agreement/"
   },
-  "extract_dir": "senzing",
+  "extract_dir": "${extract_dir}",
   "architecture": {
     "64bit": {
-      "url": "file:///${zip_path_win}",
-      "hash": "${zip_sha}"
+      "url": "file:///${build_path_win}",
+      "hash": "${build_sha}"
     }
   },
   "env_add_path": "er\\\\lib",
@@ -548,24 +609,63 @@ publish-scoop-env() {
 }
 
 ############################################
-# download-zip
+# download-build
+# Downloads the SDK build artifact to senzingsdk.<ext>, where <ext> is
+# taken from the URL (`msi` for v4+, `zip` for legacy).
 # GLOBALS:
-#   SENZINGSDK_ZIP_URL
+#   SENZINGSDK_BUILD_URL   (input)
+#   SENZINGSDK_LOCAL_FILE  (output: path to downloaded artifact)
 ############################################
-download-zip() {
+download-build() {
 
-  echo "[INFO] curl --fail --output senzingsdk.zip SENZINGSDK_ZIP_URL_REDACTED"
-  curl --fail --output senzingsdk.zip "$SENZINGSDK_ZIP_URL"
+  local ext
+  ext="${SENZINGSDK_BUILD_URL##*.}"
+  SENZINGSDK_LOCAL_FILE="senzingsdk.${ext}"
+
+  echo "[INFO] curl --fail --output ${SENZINGSDK_LOCAL_FILE} SENZINGSDK_BUILD_URL_REDACTED"
+  curl --fail --output "$SENZINGSDK_LOCAL_FILE" "$SENZINGSDK_BUILD_URL"
 
 }
 
 ############################################
 # install-senzingsdk
+# Extracts the downloaded SDK artifact into $HOME. Dispatches on extension:
+#   .zip — extract directly with 7z; layout is Senzing/er/...   (legacy)
+#   .msi — extract with 7z to a temp dir; the MSI internal layout puts
+#          the tree under PFiles64/Senzing, so move that to $HOME.
+# GLOBALS:
+#   SENZINGSDK_LOCAL_FILE  (set by download-build)
 ############################################
 install-senzingsdk() {
 
-  7z x -y -o"$HOME" senzingsdk.zip
-  rm -f senzingsdk.zip
+  case "$SENZINGSDK_LOCAL_FILE" in
+    *.zip)
+      7z x -y -o"$HOME" "$SENZINGSDK_LOCAL_FILE"
+      ;;
+    *.msi)
+      local extract_dir=/tmp/senzingsdk-extract
+      rm -rf "$extract_dir"
+      7z x -y -o"$extract_dir" "$SENZINGSDK_LOCAL_FILE"
+      # MSI's internal directory layout places the SDK under PFiles64/Senzing
+      # (matches the scoop manifest's extract_dir). Move it to $HOME/Senzing
+      # so downstream verification finds $HOME/Senzing/er/szBuildVersion.json.
+      if [ ! -d "$extract_dir/PFiles64/Senzing" ]; then
+        echo "[ERROR] no Senzing/ directory found inside MSI at PFiles64/Senzing"
+        echo "[ERROR] MSI may have a layout we don't recognize"
+        find "$extract_dir" -maxdepth 3 -type d | head -n 20
+        rm -rf "$extract_dir"
+        exit 1
+      fi
+      mkdir -p "$HOME"
+      cp -R "$extract_dir/PFiles64/Senzing" "$HOME/"
+      rm -rf "$extract_dir"
+      ;;
+    *)
+      echo "[ERROR] unsupported build artifact extension: $SENZINGSDK_LOCAL_FILE"
+      exit 1
+      ;;
+  esac
+  rm -f "$SENZINGSDK_LOCAL_FILE"
 
 }
 
@@ -595,7 +695,7 @@ main() {
   if [[ "$WINDOWS_INSTALLER" == "scoop" ]]; then
     install-via-scoop
   else
-    download-zip
+    download-build
     install-senzingsdk
   fi
 

@@ -39,7 +39,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        senzingsdk-version: [production-v4, staging-v4, "4.2.1"]
+        senzingsdk-version: [production-v4, staging-v4, "4.2.1", "4.3.2"]
 
     steps:
       - name: Checkout repository
@@ -72,6 +72,14 @@ jobs:
           - senzingsdk-version: staging-v4
             needs-staging-token: true
           - senzingsdk-version: "4.2.1"
+          # Pin to a 3-part semver on the new .pkg-only side of the
+          # 4.3.2 cutoff. Auto-detect routes to homebrew; the cask scans
+          # S3 for senzingsdk_*.pkg directly.
+          - senzingsdk-version: "4.3.2"
+          # Same version, but force the native path so the .pkg dispatch
+          # (pkgutil --expand-full + Payload/senzing copy) gets exercised.
+          - senzingsdk-version: "4.3.2"
+            darwin-installer: native
           # Explicit overrides — exercise the opt-out and warn+fallback
           # paths so the auto-detect doesn't hide regressions.
           - senzingsdk-version: production-v4
@@ -136,6 +144,17 @@ jobs:
           # Pre-4.3.0 auto-detect goes to native; auto-detect of
           # floating tags is covered by the bats unit tests.
           - senzingsdk-version: "4.2.1"
+          # 3-part semver on the new .msi-only side of the 4.3.2 cutoff.
+          # Auto-detect routes to scoop -> install-scoop-pinned, which
+          # downloads the .msi and emits a manifest with extract_dir
+          # PFiles64/Senzing.
+          - senzingsdk-version: "4.3.2"
+            windows-installer: scoop
+          # Same version on the native path, exercising the .msi
+          # dispatch in install-senzingsdk (7z to temp dir + move
+          # PFiles64/Senzing to $HOME).
+          - senzingsdk-version: "4.3.2"
+            windows-installer: native
           # Explicit overrides — opt-out and warn+fallback paths.
           - senzingsdk-version: production-v4
             windows-installer: native
