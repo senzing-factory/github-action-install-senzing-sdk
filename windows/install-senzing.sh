@@ -640,10 +640,15 @@ download-build() {
 
 ############################################
 # install-senzingsdk
-# Extracts the downloaded SDK artifact into $HOME. Dispatches on extension:
-#   .zip — extract directly with 7z; layout is Senzing/er/...   (legacy)
-#   .msi — extract with 7z to a temp dir; the MSI internal layout puts
-#          the tree under PFiles64/Senzing, so move that to $HOME.
+# Extracts the downloaded SDK artifact into $HOME/Senzing/. Dispatches on
+# extension:
+#   .zip — extract directly with 7z; archive's top-level layout is
+#          Senzing/er/...                                       (legacy)
+#   .msi — extract via msiexec /a (administrative install). 7z alone
+#          would only unpack the MSI's outer CAB archives + metadata
+#          (~47 large blobs), not the actual file tree inside. /a runs
+#          a "would-be" install into TARGETDIR without committing any
+#          system changes, producing the file tree we need.
 # GLOBALS:
 #   SENZINGSDK_LOCAL_FILE  (set by download-build)
 ############################################
@@ -656,19 +661,40 @@ install-senzingsdk() {
     *.msi)
       local extract_dir=/tmp/senzingsdk-extract
       rm -rf "$extract_dir"
-      7z x -y -o"$extract_dir" "$SENZINGSDK_LOCAL_FILE"
-      # MSI's internal directory layout places the SDK under PFiles64/Senzing
-      # (matches the scoop manifest's extract_dir). Move it to $HOME/Senzing
-      # so downstream verification finds $HOME/Senzing/er/szBuildVersion.json.
-      if [ ! -d "$extract_dir/PFiles64/Senzing" ]; then
-        echo "[ERROR] no Senzing/ directory found inside MSI at PFiles64/Senzing"
-        echo "[ERROR] MSI may have a layout we don't recognize"
-        find "$extract_dir" -maxdepth 3 -type d | head -n 20
+      mkdir -p "$extract_dir"
+
+      # cmd.exe so MSYS2 doesn't munge the /a, /qn, and TARGETDIR= MSI
+      # flags into POSIX path arguments. cygpath -w converts the local
+      # paths into Windows form for msiexec to accept.
+      local msi_path_win extract_dir_win msi_log
+      msi_path_win=$(cygpath -w "$(pwd)/$SENZINGSDK_LOCAL_FILE")
+      extract_dir_win=$(cygpath -w "$extract_dir")
+      msi_log="$extract_dir/msiexec.log"
+      cmd.exe //c "msiexec /a \"$msi_path_win\" /qn /L*v \"$(cygpath -w "$msi_log")\" TARGETDIR=\"$extract_dir_win\""
+
+      # The on-disk layout after msiexec /a depends on the MSI's Directory
+      # table: senzingsdk's MSI puts the SDK tree under a "Senzing"
+      # directory at some depth, with er/szBuildVersion.json inside.
+      # Locate the SDK root via that marker file rather than hardcoding a
+      # path (lessmsi uses PFiles64\Senzing, msiexec uses the resolved
+      # Program Files path; we want to work regardless).
+      local marker sdk_root
+      marker=$(find "$extract_dir" -type f -name 'szBuildVersion.json' \
+                  -path '*/er/szBuildVersion.json' 2>/dev/null | head -n 1)
+      if [ -z "$marker" ]; then
+        echo "[ERROR] expected er/szBuildVersion.json inside extracted MSI"
+        echo "[ERROR] but none was found. Extraction layout (depth 4):"
+        find "$extract_dir" -maxdepth 4 -type d 2>/dev/null | head -n 30
+        [ -f "$msi_log" ] && tail -n 40 "$msi_log"
         rm -rf "$extract_dir"
         exit 1
       fi
-      mkdir -p "$HOME"
-      cp -R "$extract_dir/PFiles64/Senzing" "$HOME/"
+      # marker = .../<...>/Senzing/er/szBuildVersion.json
+      # The grandparent is the SDK root regardless of what msiexec named
+      # the directories above it.
+      sdk_root=$(dirname "$(dirname "$marker")")
+      mkdir -p "$HOME/Senzing"
+      cp -R "$sdk_root"/* "$HOME/Senzing/"
       rm -rf "$extract_dir"
       ;;
     *)
