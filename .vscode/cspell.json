@@ -5,14 +5,17 @@
     "askpass",
     "ASKPASS",
     "CCLA",
+    "choco",
     "CODEOWNER",
     "cooldown",
     "DYLD",
     "esbenp",
     "ICLA",
     "kernelsam",
+    "lessmsi",
     "libcrypto",
     "misconfig",
+    "msiexec",
     "Senzing",
     "senzingdata",
     "senzingrepo",
@@ -20,7 +23,8 @@
     "senzingstagingrepo",
     "shellcheck",
     "stackoverflow",
-    "subactions"
+    "subactions",
+    "TARGETDIR"
   ],
   "ignorePaths": [".git/**"]
 }

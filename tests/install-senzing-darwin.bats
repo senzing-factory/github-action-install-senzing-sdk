@@ -1,5 +1,9 @@
 #!/usr/bin/env bats
 
+# `run !` was added in bats 1.5.0; declaring the minimum keeps bats
+# from emitting a "BW02" warning at runtime.
+bats_require_minimum_version 1.5.0
+
 # Unit tests for darwin/install-senzing.sh dispatch logic.
 # Source-loads the script (main() is gated on direct execution) so
 # individual functions can be tested in isolation without needing
@@ -137,4 +141,52 @@ setup() {
   SENZINGSDK_REPOSITORY_PATH="my-bucket"
   determine-installer >/dev/null 2>&1
   [ "$DARWIN_INSTALLER" = "native" ]
+}
+
+# ---------------------------------------------------------------------------
+# is-modern-build-format: 4.3.2 is the cutoff for .pkg-only builds
+# ---------------------------------------------------------------------------
+
+@test "is-modern-build-format: 4.3.2 -> modern" { is-modern-build-format "4.3.2"; }
+@test "is-modern-build-format: 4.3.2.26159 -> modern" { is-modern-build-format "4.3.2.26159"; }
+@test "is-modern-build-format: 4.3.3 -> modern" { is-modern-build-format "4.3.3"; }
+@test "is-modern-build-format: 4.4.0 -> modern" { is-modern-build-format "4.4.0"; }
+@test "is-modern-build-format: 5.0.0 -> modern" { is-modern-build-format "5.0.0"; }
+
+@test "is-modern-build-format: 4.3.1 -> legacy" { run ! is-modern-build-format "4.3.1"; }
+@test "is-modern-build-format: 4.3.1.99999 -> legacy" { run ! is-modern-build-format "4.3.1.99999"; }
+@test "is-modern-build-format: 4.3.0 -> legacy" { run ! is-modern-build-format "4.3.0"; }
+@test "is-modern-build-format: 4.2.4 -> legacy" { run ! is-modern-build-format "4.2.4"; }
+@test "is-modern-build-format: 3.10.3 -> legacy" { run ! is-modern-build-format "3.10.3"; }
+
+# ---------------------------------------------------------------------------
+# determine-build-for-version: URL extension follows the threshold
+# ---------------------------------------------------------------------------
+
+@test "determine-build-for-version: 4.3.2.26159 -> .pkg URL" {
+  SENZING_INSTALL_VERSION="4.3.2.26159"
+  SENZINGSDK_URL="https://example.com/"
+  determine-build-for-version
+  [ "$SENZINGSDK_BUILD_URL" = "https://example.com/senzingsdk_4.3.2.26159.pkg" ]
+}
+
+@test "determine-build-for-version: 4.3.1.99999 -> .dmg URL" {
+  SENZING_INSTALL_VERSION="4.3.1.99999"
+  SENZINGSDK_URL="https://example.com/"
+  determine-build-for-version
+  [ "$SENZINGSDK_BUILD_URL" = "https://example.com/senzingsdk_4.3.1.99999.dmg" ]
+}
+
+@test "determine-build-for-version: 4.2.4.26098 -> .dmg URL" {
+  SENZING_INSTALL_VERSION="4.2.4.26098"
+  SENZINGSDK_URL="https://example.com/"
+  determine-build-for-version
+  [ "$SENZINGSDK_BUILD_URL" = "https://example.com/senzingsdk_4.2.4.26098.dmg" ]
+}
+
+@test "determine-build-for-version: 5.0.0.12345 -> .pkg URL" {
+  SENZING_INSTALL_VERSION="5.0.0.12345"
+  SENZINGSDK_URL="https://example.com/"
+  determine-build-for-version
+  [ "$SENZINGSDK_BUILD_URL" = "https://example.com/senzingsdk_5.0.0.12345.pkg" ]
 }

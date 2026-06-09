@@ -2,7 +2,7 @@
 set -eo pipefail
 
 # Clean up temp files on exit
-trap 'rm -f /tmp/staging-versions /tmp/senzingsdk.dmg' EXIT
+trap 'rm -f /tmp/staging-versions /tmp/senzingsdk.dmg /tmp/senzingsdk.pkg; rm -rf /tmp/senzingsdk-expanded' EXIT
 
 ############################################
 # configure-vars
@@ -85,11 +85,11 @@ configure-vars() {
   # Phase 4: Determine artifact / pin version
   if [[ "$DARWIN_INSTALLER" == "native" ]]; then
     if [[ "$SENZING_INSTALL_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]{5}$ ]]; then
-      determine-dmg-for-version
+      determine-build-for-version
     elif [[ "$SENZING_INSTALL_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-      determine-latest-dmg-for-semver
+      determine-latest-build-for-semver
     else
-      determine-latest-dmg-for-major-version
+      determine-latest-build-for-major-version
     fi
   else
     determine-homebrew-version
@@ -165,10 +165,38 @@ is-major-version-greater-than-3() {
 }
 
 ############################################
-# list-latest-dmg
+# is-modern-build-format
+# Returns 0 if $1 >= 4.3.2 (artifact is .pkg), 1 otherwise (artifact is
+# .dmg). 4.3.2 is the first SDK release published only in the new format;
+# 4.3.1 and earlier still have a .dmg in S3 alongside any .pkg.
+# ARGS:
+#   $1 - version in X.Y.Z or X.Y.Z.BUILD form
+############################################
+is-modern-build-format() {
+
+  local v="$1"
+  local major minor patch
+  IFS='.' read -r major minor patch _ <<< "$v"
+  (( major > 4 || (major == 4 && minor > 3) || (major == 4 && minor == 3 && patch >= 2) ))
+
+}
+
+############################################
+# list-latest-build
 # Lists $SENZINGSDK_URI on S3 and returns the
-# latest DMG (lexicographic sort) whose name
-# contains the supplied filter pattern.
+# latest build (lexicographic sort) whose name
+# contains the supplied filter pattern. Accepts
+# both .dmg (legacy) and .pkg (4.3.2+) artifacts.
+#
+# Sort ambiguity for transitional versions:
+# 4.3.0 and 4.3.1 have BOTH .dmg and .pkg present
+# in S3. sort -r picks .pkg (p > d), so a
+# semver lookup for those versions returns the
+# .pkg. Both formats contain the same SDK build,
+# so install-senzing's .pkg dispatch handles it
+# correctly. 4.3.2+ has .pkg only; pre-4.3.0 has
+# .dmg only — no ambiguity in those ranges.
+#
 # ARGS:
 #   $1 - filter pattern passed to grep
 # GLOBALS:
@@ -177,14 +205,14 @@ is-major-version-greater-than-3() {
 #   echoes the S3 key (may include subdir
 #   prefix) to stdout, or empty if no match
 ############################################
-list-latest-dmg() {
+list-latest-build() {
 
   local pattern="$1"
   # `|| true` only on the two greps: a "no match" (exit 1) is a
   # legitimate empty result that callers handle. Errors from
   # `aws s3 ls` (network, credentials) propagate via pipefail.
   aws s3 ls "$SENZINGSDK_URI" --recursive --no-sign-request \
-    | { grep -o -E '[^ ]+\.dmg$' || true; } \
+    | { grep -o -E '[^ ]+\.(dmg|pkg)$' || true; } \
     | { grep "$pattern" || true; } \
     | sort -r \
     | head -n 1
@@ -192,54 +220,64 @@ list-latest-dmg() {
 }
 
 ############################################
-# determine-latest-dmg-for-major-version
+# determine-latest-build-for-major-version
 # GLOBALS:
 #   MAJOR_VERSION
 #   SENZINGSDK_URL
 ############################################
-determine-latest-dmg-for-major-version() {
+determine-latest-build-for-major-version() {
 
   local latest
-  latest=$(list-latest-dmg "_${MAJOR_VERSION}")
+  latest=$(list-latest-build "_${MAJOR_VERSION}")
   if [ -z "$latest" ]; then
-    echo "[ERROR] no DMG found for major version $MAJOR_VERSION"
+    echo "[ERROR] no build found for major version $MAJOR_VERSION"
     exit 1
   fi
   echo "[INFO] latest version for major version $MAJOR_VERSION is: $latest"
 
-  SENZINGSDK_DMG_URL="$SENZINGSDK_URL$latest"
+  SENZINGSDK_BUILD_URL="$SENZINGSDK_URL$latest"
 
 }
 
 ############################################
-# determine-latest-dmg-for-semver
+# determine-latest-build-for-semver
 # GLOBALS:
 #   SENZING_INSTALL_VERSION
 #   SENZINGSDK_URL
 ############################################
-determine-latest-dmg-for-semver() {
+determine-latest-build-for-semver() {
 
   local latest
-  latest=$(list-latest-dmg "_${SENZING_INSTALL_VERSION}\.")
+  latest=$(list-latest-build "_${SENZING_INSTALL_VERSION}\.")
   if [ -z "$latest" ]; then
-    echo "[ERROR] no DMG found for version $SENZING_INSTALL_VERSION"
+    echo "[ERROR] no build found for version $SENZING_INSTALL_VERSION"
     exit 1
   fi
   echo "[INFO] latest build for $SENZING_INSTALL_VERSION is: $latest"
 
-  SENZINGSDK_DMG_URL="$SENZINGSDK_URL$latest"
+  SENZINGSDK_BUILD_URL="$SENZINGSDK_URL$latest"
 
 }
 
 ############################################
-# determine-dmg-for-version
+# determine-build-for-version
+# Constructs the artifact URL for an exact X.Y.Z.BUILD version. Extension
+# is derived from the version: .pkg for 4.3.2+ (modern), .dmg otherwise
+# (legacy). No S3 lookup needed.
 # GLOBALS:
-#   SENZING_INSTALL_VERSION
-#   SENZINGSDK_URL
+#   SENZING_INSTALL_VERSION  (X.Y.Z.BUILD)
+#   SENZINGSDK_URL           (output prefix)
+#   SENZINGSDK_BUILD_URL     (output)
 ############################################
-determine-dmg-for-version() {
+determine-build-for-version() {
 
-  SENZINGSDK_DMG_URL="$SENZINGSDK_URL"senzingsdk_"$SENZING_INSTALL_VERSION".dmg
+  local ext
+  if is-modern-build-format "$SENZING_INSTALL_VERSION"; then
+    ext="pkg"
+  else
+    ext="dmg"
+  fi
+  SENZINGSDK_BUILD_URL="${SENZINGSDK_URL}senzingsdk_${SENZING_INSTALL_VERSION}.${ext}"
 
 }
 
@@ -258,7 +296,7 @@ determine-homebrew-version() {
     echo "[INFO] pinning homebrew install to $HOMEBREW_PIN_VERSION"
   elif [[ "$SENZING_INSTALL_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
     local latest filename
-    latest=$(list-latest-dmg "_${SENZING_INSTALL_VERSION}\.")
+    latest=$(list-latest-build "_${SENZING_INSTALL_VERSION}\.")
     if [ -z "$latest" ]; then
       echo "[ERROR] no build found for semantic version $SENZING_INSTALL_VERSION"
       exit 1
@@ -269,8 +307,9 @@ determine-homebrew-version() {
     filename="${latest##*/}"
     HOMEBREW_PIN_VERSION="${filename#senzingsdk_}"
     HOMEBREW_PIN_VERSION="${HOMEBREW_PIN_VERSION%.dmg}"
+    HOMEBREW_PIN_VERSION="${HOMEBREW_PIN_VERSION%.pkg}"
     if [[ ! "$HOMEBREW_PIN_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-      echo "[ERROR] could not parse build version from S3 filename '$filename' (expected senzingsdk_X.Y.Z.BUILD.dmg)"
+      echo "[ERROR] could not parse build version from S3 filename '$filename' (expected senzingsdk_X.Y.Z.BUILD.{dmg,pkg})"
       exit 1
     fi
     echo "[INFO] resolved $SENZING_INSTALL_VERSION to homebrew pin version $HOMEBREW_PIN_VERSION"
@@ -427,14 +466,21 @@ publish-homebrew-env() {
 }
 
 ############################################
-# download-dmg
+# download-build
+# Downloads the SDK build artifact to /tmp/senzingsdk.<ext>, where <ext>
+# is taken from the URL (currently `pkg` for v4+, `dmg` for legacy v3).
 # GLOBALS:
-#   SENZINGSDK_DMG_URL
+#   SENZINGSDK_BUILD_URL    (input)
+#   SENZINGSDK_LOCAL_FILE   (output: absolute path to downloaded artifact)
 ############################################
-download-dmg() {
+download-build() {
 
-  echo "[INFO] curl --fail --output /tmp/senzingsdk.dmg SENZINGSDK_DMG_URL_REDACTED"
-  curl --fail --output /tmp/senzingsdk.dmg "$SENZINGSDK_DMG_URL"
+  local ext
+  ext="${SENZINGSDK_BUILD_URL##*.}"
+  SENZINGSDK_LOCAL_FILE="/tmp/senzingsdk.${ext}"
+
+  echo "[INFO] curl --fail --output ${SENZINGSDK_LOCAL_FILE} SENZINGSDK_BUILD_URL_REDACTED"
+  curl --fail --output "$SENZINGSDK_LOCAL_FILE" "$SENZINGSDK_BUILD_URL"
 
 }
 
@@ -468,14 +514,45 @@ install-openssl() {
 
 ############################################
 # install-senzing
+# Extracts the downloaded SDK artifact into $HOME/senzing/. Dispatches on
+# the file extension:
+#   .dmg  — mount via hdiutil, copy senzing/, unmount  (legacy v3)
+#   .pkg  — expand via pkgutil, copy Payload/senzing/  (v4+)
+# GLOBALS:
+#   SENZINGSDK_LOCAL_FILE  (set by download-build)
 ############################################
 install-senzing() {
 
   ls -tlc /tmp/
-  hdiutil attach /tmp/senzingsdk.dmg
-  sudo mkdir -p "$HOME"/senzing
-  sudo cp -R /Volumes/SenzingSDK/senzing/* "$HOME"/senzing/
-  hdiutil detach /Volumes/SenzingSDK
+  case "$SENZINGSDK_LOCAL_FILE" in
+    *.dmg)
+      hdiutil attach "$SENZINGSDK_LOCAL_FILE"
+      sudo mkdir -p "$HOME"/senzing
+      sudo cp -R /Volumes/SenzingSDK/senzing/* "$HOME"/senzing/
+      hdiutil detach /Volumes/SenzingSDK
+      ;;
+    *.pkg)
+      local expanded=/tmp/senzingsdk-expanded
+      rm -rf "$expanded"
+      /usr/sbin/pkgutil --expand-full "$SENZINGSDK_LOCAL_FILE" "$expanded"
+      local payload
+      payload=$(find "$expanded" -type d -path '*/Payload/senzing' | head -n 1)
+      if [ -z "$payload" ]; then
+        echo "[ERROR] no senzing payload found inside $SENZINGSDK_LOCAL_FILE"
+        echo "[ERROR] pkg may have a layout we don't recognize"
+        find "$expanded" -maxdepth 3 -type d | head -n 20
+        rm -rf "$expanded"
+        exit 1
+      fi
+      sudo mkdir -p "$HOME"/senzing
+      sudo cp -R "$payload"/* "$HOME"/senzing/
+      rm -rf "$expanded"
+      ;;
+    *)
+      echo "[ERROR] unsupported build artifact extension: $SENZINGSDK_LOCAL_FILE"
+      exit 1
+      ;;
+  esac
 
 }
 
@@ -505,7 +582,7 @@ main() {
   if [[ "$DARWIN_INSTALLER" == "homebrew" ]]; then
     install-via-homebrew
   else
-    download-dmg
+    download-build
     install-senzing
     install-openssl
   fi
