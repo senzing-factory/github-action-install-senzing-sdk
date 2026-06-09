@@ -663,24 +663,29 @@ install-senzingsdk() {
       rm -rf "$extract_dir"
       mkdir -p "$extract_dir"
 
-      # cmd.exe so MSYS2 doesn't munge the /a, /qn, and TARGETDIR= MSI
-      # flags into POSIX path arguments. cygpath -w converts the local
-      # paths into Windows form for msiexec to accept. No /L*v flag:
-      # msiexec runs as the workflow user but rejects log paths under
-      # MSYS2's /tmp (some MSYS2 mounts aren't visible to the Windows
-      # process); if extraction fails, msiexec writes its own log to
-      # %TEMP%\MSI*.log automatically.
+      # Use lessmsi (a small native MSI extractor) rather than msiexec /a.
+      # msiexec runs as a Windows-native process and refuses to open
+      # files under MSYS2's /tmp (it errors out with code 83
+      # "package could not be opened" or code 86 on the log-path flag).
+      # lessmsi accepts MSYS2/cygwin path conventions and is what scoop
+      # uses internally for the same MSI. The Windows runner image
+      # ships chocolatey; lessmsi installs in a few seconds.
+      if ! command -v lessmsi >/dev/null 2>&1; then
+        echo "[INFO] installing lessmsi via chocolatey"
+        choco install lessmsi -y --no-progress --limit-output
+      fi
+
       local msi_path_win extract_dir_win
       msi_path_win=$(cygpath -w "$(pwd)/$SENZINGSDK_LOCAL_FILE")
-      extract_dir_win=$(cygpath -w "$extract_dir")
-      cmd.exe //c "msiexec /a \"$msi_path_win\" /qn TARGETDIR=\"$extract_dir_win\""
+      # lessmsi treats the output argument as a filename unless it ends
+      # with a backslash, in which case it creates files inside the dir.
+      extract_dir_win="$(cygpath -w "$extract_dir")\\"
+      lessmsi x "$msi_path_win" "$extract_dir_win"
 
-      # The on-disk layout after msiexec /a depends on the MSI's Directory
-      # table: senzingsdk's MSI puts the SDK tree under a "Senzing"
-      # directory at some depth, with er/szBuildVersion.json inside.
-      # Locate the SDK root via that marker file rather than hardcoding a
-      # path (lessmsi uses PFiles64\Senzing, msiexec uses the resolved
-      # Program Files path; we want to work regardless).
+      # lessmsi writes the tree using the MSI's Directory-table IDs (e.g.
+      # PFiles64\Senzing\...) nested under <extract_dir>/<msi-basename>/.
+      # Locate the SDK root by its marker file (er/szBuildVersion.json)
+      # rather than hardcoding the intermediate path layout.
       local marker sdk_root
       marker=$(find "$extract_dir" -type f -name 'szBuildVersion.json' \
                   -path '*/er/szBuildVersion.json' 2>/dev/null | head -n 1)
@@ -692,8 +697,8 @@ install-senzingsdk() {
         exit 1
       fi
       # marker = .../<...>/Senzing/er/szBuildVersion.json
-      # The grandparent is the SDK root regardless of what msiexec named
-      # the directories above it.
+      # The grandparent is the SDK root regardless of the intermediate
+      # directories lessmsi chose.
       sdk_root=$(dirname "$(dirname "$marker")")
       mkdir -p "$HOME/Senzing"
       cp -R "$sdk_root"/* "$HOME/Senzing/"
