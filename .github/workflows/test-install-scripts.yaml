@@ -74,12 +74,18 @@ jobs:
           - senzingsdk-version: "4.2.1"
           # Pin to a 3-part semver on the new .pkg-only side of the
           # 4.3.2 cutoff. Auto-detect routes to homebrew; the cask scans
-          # S3 for senzingsdk_*.pkg directly.
+          # S3 for senzingsdk_*.pkg directly. 4.3.2 currently only lives
+          # in staging, so the homebrew tap clone needs the staging token.
           - senzingsdk-version: "4.3.2"
+            needs-staging-token: true
           # Same version, but force the native path so the .pkg dispatch
           # (pkgutil --expand-full + Payload/senzing copy) gets exercised.
+          # Native install downloads directly from the staging S3 bucket
+          # (anonymous read), so no token is strictly required, but the
+          # mint is cheap and keeps the row symmetrical with the auto row.
           - senzingsdk-version: "4.3.2"
             darwin-installer: native
+            needs-staging-token: true
           # Explicit overrides — exercise the opt-out and warn+fallback
           # paths so the auto-detect doesn't hide regressions.
           - senzingsdk-version: production-v4
@@ -145,16 +151,20 @@ jobs:
           # floating tags is covered by the bats unit tests.
           - senzingsdk-version: "4.2.1"
           # 3-part semver on the new .msi-only side of the 4.3.2 cutoff.
-          # Auto-detect routes to scoop -> install-scoop-pinned, which
-          # downloads the .msi and emits a manifest with extract_dir
-          # PFiles64/Senzing.
+          # Routes to install-scoop-pinned, which downloads the .msi and
+          # emits a manifest with extract_dir PFiles64/Senzing. 4.3.2
+          # currently lives in staging only — the staging-token mint is
+          # included for parity with staging-v4 even though the pinned
+          # path doesn't clone the private scoop bucket repo.
           - senzingsdk-version: "4.3.2"
             windows-installer: scoop
+            needs-staging-token: true
           # Same version on the native path, exercising the .msi
           # dispatch in install-senzingsdk (7z to temp dir + move
           # PFiles64/Senzing to $HOME).
           - senzingsdk-version: "4.3.2"
             windows-installer: native
+            needs-staging-token: true
           # Explicit overrides — opt-out and warn+fallback paths.
           - senzingsdk-version: production-v4
             windows-installer: native

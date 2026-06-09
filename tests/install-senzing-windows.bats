@@ -1,5 +1,9 @@
 #!/usr/bin/env bats
 
+# `run !` was added in bats 1.5.0; declaring the minimum keeps bats
+# from emitting a "BW02" warning at runtime.
+bats_require_minimum_version 1.5.0
+
 # Unit tests for windows/install-senzing.sh dispatch logic.
 # Source-loads the script (main() is gated on direct execution) so
 # individual functions can be tested in isolation without needing
@@ -148,11 +152,11 @@ setup() {
 @test "is-modern-build-format: 4.4.0 -> modern" { is-modern-build-format "4.4.0"; }
 @test "is-modern-build-format: 5.0.0 -> modern" { is-modern-build-format "5.0.0"; }
 
-@test "is-modern-build-format: 4.3.1 -> legacy" { ! is-modern-build-format "4.3.1"; }
-@test "is-modern-build-format: 4.3.1.99999 -> legacy" { ! is-modern-build-format "4.3.1.99999"; }
-@test "is-modern-build-format: 4.3.0 -> legacy" { ! is-modern-build-format "4.3.0"; }
-@test "is-modern-build-format: 4.2.4 -> legacy" { ! is-modern-build-format "4.2.4"; }
-@test "is-modern-build-format: 3.10.3 -> legacy" { ! is-modern-build-format "3.10.3"; }
+@test "is-modern-build-format: 4.3.1 -> legacy" { run ! is-modern-build-format "4.3.1"; }
+@test "is-modern-build-format: 4.3.1.99999 -> legacy" { run ! is-modern-build-format "4.3.1.99999"; }
+@test "is-modern-build-format: 4.3.0 -> legacy" { run ! is-modern-build-format "4.3.0"; }
+@test "is-modern-build-format: 4.2.4 -> legacy" { run ! is-modern-build-format "4.2.4"; }
+@test "is-modern-build-format: 3.10.3 -> legacy" { run ! is-modern-build-format "3.10.3"; }
 
 # ---------------------------------------------------------------------------
 # determine-build-for-version: URL extension follows the threshold

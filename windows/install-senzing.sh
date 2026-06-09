@@ -2,7 +2,7 @@
 set -eo pipefail
 
 # Clean up temp files on exit
-trap 'rm -f /tmp/staging-versions senzingsdk.zip senzingsdk.msi /tmp/senzingsdk.json /tmp/senzingsdk-pinned.zip /tmp/senzingsdk-pinned.msi' EXIT
+trap 'rm -f /tmp/staging-versions senzingsdk.zip senzingsdk.msi /tmp/senzingsdk.json /tmp/senzingsdk-pinned.zip /tmp/senzingsdk-pinned.msi; rm -rf /tmp/senzingsdk-extract' EXIT
 
 ############################################
 # configure-vars
@@ -182,7 +182,18 @@ is-modern-build-format() {
 # list-latest-build
 # Lists $SENZINGSDK_URI on S3 and returns the
 # latest build (lexicographic sort) whose name
-# contains the supplied filter pattern.
+# contains the supplied filter pattern. Accepts
+# both .zip (legacy) and .msi (4.3.2+) artifacts.
+#
+# Sort ambiguity for transitional versions:
+# 4.3.0 and 4.3.1 have BOTH .zip and .msi present
+# in S3. sort -r picks .zip (z > m), so a semver
+# lookup for those versions returns the .zip.
+# Both formats contain the same SDK build, so
+# install-senzingsdk's .zip dispatch handles it
+# correctly. 4.3.2+ has .msi only; pre-4.3.0 has
+# .zip only — no ambiguity in those ranges.
+#
 # ARGS:
 #   $1 - filter pattern passed to grep
 # GLOBALS:

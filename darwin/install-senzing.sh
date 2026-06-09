@@ -2,7 +2,7 @@
 set -eo pipefail
 
 # Clean up temp files on exit
-trap 'rm -f /tmp/staging-versions /tmp/senzingsdk.dmg /tmp/senzingsdk.pkg' EXIT
+trap 'rm -f /tmp/staging-versions /tmp/senzingsdk.dmg /tmp/senzingsdk.pkg; rm -rf /tmp/senzingsdk-expanded' EXIT
 
 ############################################
 # configure-vars
@@ -185,7 +185,18 @@ is-modern-build-format() {
 # list-latest-build
 # Lists $SENZINGSDK_URI on S3 and returns the
 # latest build (lexicographic sort) whose name
-# contains the supplied filter pattern.
+# contains the supplied filter pattern. Accepts
+# both .dmg (legacy) and .pkg (4.3.2+) artifacts.
+#
+# Sort ambiguity for transitional versions:
+# 4.3.0 and 4.3.1 have BOTH .dmg and .pkg present
+# in S3. sort -r picks .pkg (p > d), so a
+# semver lookup for those versions returns the
+# .pkg. Both formats contain the same SDK build,
+# so install-senzing's .pkg dispatch handles it
+# correctly. 4.3.2+ has .pkg only; pre-4.3.0 has
+# .dmg only — no ambiguity in those ranges.
+#
 # ARGS:
 #   $1 - filter pattern passed to grep
 # GLOBALS:
