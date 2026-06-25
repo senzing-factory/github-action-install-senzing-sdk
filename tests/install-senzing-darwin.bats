@@ -190,3 +190,32 @@ setup() {
   determine-build-for-version
   [ "$SENZINGSDK_BUILD_URL" = "https://example.com/senzingsdk_5.0.0.12345.pkg" ]
 }
+
+# ---------------------------------------------------------------------------
+# homebrew-cask-ref: fully-qualified tap/cask name (Homebrew 6.0 tap trust)
+# ---------------------------------------------------------------------------
+
+@test "homebrew-cask-ref: production -> fully-qualified prod cask" {
+  PRODUCTION_TAP="Senzing/senzingsdk"
+  PRODUCTION_CASK="senzingsdk"
+  REPO_KIND="production"
+  run homebrew-cask-ref
+  [ "$status" -eq 0 ]
+  [ "$output" = "Senzing/senzingsdk/senzingsdk" ]
+}
+
+@test "homebrew-cask-ref: staging -> fully-qualified staging cask" {
+  STAGING_TAP="senzing-factory/senzingsdk-staging"
+  STAGING_CASK="senzingsdk-staging"
+  REPO_KIND="staging"
+  run homebrew-cask-ref
+  [ "$status" -eq 0 ]
+  [ "$output" = "senzing-factory/senzingsdk-staging/senzingsdk-staging" ]
+}
+
+@test "homebrew-cask-ref: unknown repo kind errors" {
+  REPO_KIND="custom"
+  run homebrew-cask-ref
+  [ "$status" -ne 0 ]
+  [[ "$output" =~ "unsupported repository" ]]
+}

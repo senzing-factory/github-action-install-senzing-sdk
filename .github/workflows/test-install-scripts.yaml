@@ -127,7 +127,13 @@ jobs:
           SENZING_INSTALL_VERSION: ${{ matrix.senzingsdk-version }}
           DARWIN_INSTALLER: ${{ matrix.darwin-installer }}
           SENZINGSDK_TOKEN: ${{ steps.app-token.outputs.token }}
-        run: bash darwin/install-senzing.sh
+          # Force Homebrew 6.0 tap-trust enforcement so the homebrew rows keep
+          # exercising the fully-qualified-install trust fix even if a future
+          # runner image changes the default. No-op on the native rows / older brew.
+          HOMEBREW_REQUIRE_TAP_TRUST: 1
+        run: |
+          echo "[INFO] $(brew --version | head -1)"
+          bash darwin/install-senzing.sh
 
   test-windows:
     name: "Windows: ${{ matrix.senzingsdk-version }} (${{ matrix.windows-installer || 'auto' }})"
