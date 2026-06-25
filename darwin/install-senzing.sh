@@ -321,6 +321,31 @@ determine-homebrew-version() {
 }
 
 ############################################
+# homebrew-cask-ref
+# Echoes the fully-qualified "<tap>/<cask>" reference for the current
+# REPO_KIND. Installing by this fully-qualified name is an explicit request
+# for that exact cask, so Homebrew 6.0 trusts just that item — instead of
+# refusing the auto-migrated bare short name `senzingsdk`, which redirects
+# (via Homebrew's cask_tap_migrations) into the untrusted third-party tap.
+# GLOBALS:
+#   REPO_KIND
+#   PRODUCTION_TAP / PRODUCTION_CASK
+#   STAGING_TAP / STAGING_CASK
+############################################
+homebrew-cask-ref() {
+
+  case "$REPO_KIND" in
+    production) echo "$PRODUCTION_TAP/$PRODUCTION_CASK" ;;
+    staging) echo "$STAGING_TAP/$STAGING_CASK" ;;
+    *)
+      echo "[ERROR] unsupported repository '$REPO_KIND' for homebrew install" >&2
+      return 1
+      ;;
+  esac
+
+}
+
+############################################
 # install-via-homebrew
 # GLOBALS:
 #   REPO_KIND
@@ -329,15 +354,12 @@ determine-homebrew-version() {
 ############################################
 install-via-homebrew() {
 
-  local cask
   case "$REPO_KIND" in
     production)
-      cask="$PRODUCTION_CASK"
       echo "[INFO] brew tap $PRODUCTION_TAP"
       brew tap "$PRODUCTION_TAP"
       ;;
     staging)
-      cask="$STAGING_CASK"
       if [ -z "$SENZINGSDK_TOKEN" ]; then
         echo "[ERROR] senzingsdk-token is required for homebrew installs from the staging tap (private repo $STAGING_TAP_REPO)"
         exit 1
@@ -351,14 +373,18 @@ install-via-homebrew() {
       ;;
   esac
 
+  # Fully-qualified ref (tap/cask) so Homebrew 6.0 tap-trust accepts it.
+  local cask_ref
+  cask_ref="$(homebrew-cask-ref)"
+
   export HOMEBREW_SENZING_ACCEPT_EULA="i_accept_the_senzing_eula"
   if [ -n "$HOMEBREW_PIN_VERSION" ]; then
     export HOMEBREW_SENZING_SDK_VERSION="$HOMEBREW_PIN_VERSION"
-    echo "[INFO] brew install --cask $cask (pinned to $HOMEBREW_PIN_VERSION)"
+    echo "[INFO] brew install --cask $cask_ref (pinned to $HOMEBREW_PIN_VERSION)"
   else
-    echo "[INFO] brew install --cask $cask (latest)"
+    echo "[INFO] brew install --cask $cask_ref (latest)"
   fi
-  brew install --cask "$cask"
+  brew install --cask "$cask_ref"
 
   link-homebrew-prefix
   publish-homebrew-env
