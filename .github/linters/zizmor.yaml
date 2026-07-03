@@ -2,7 +2,8 @@ rules:
   unpinned-uses:
     config:
       policies:
-        "*": ref-pin
+        "*": hash-pin
+        "senzing-factory/*": ref-pin
 
   # The macOS test job mints a short-lived GitHub App token for the
   # private staging Homebrew tap. Moving the App credentials behind a
