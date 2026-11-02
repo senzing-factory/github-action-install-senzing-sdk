@@ -16,6 +16,7 @@
     "libcrypto",
     "misconfig",
     "msiexec",
+    "noninteractive",
     "Senzing",
     "senzingdata",
     "senzingrepo",
@@ -24,7 +25,8 @@
     "shellcheck",
     "stackoverflow",
     "subactions",
-    "TARGETDIR"
+    "TARGETDIR",
+    "zizmor"
   ],
   "ignorePaths": [".git/**"]
 }

@@ -31,15 +31,35 @@ jobs:
         run: bats tests/
 
   test-linux:
-    name: "Linux: ${{ matrix.senzingsdk-version }}"
+    # KEEP THE ubuntu-latest LEGS NAMED EXACTLY AS BEFORE. These job names
+    # are the required status checks on main; renaming them orphans the
+    # branch rule, which then hangs every pull request on "Expected --
+    # Waiting for status to be reported". Only the pinned leg gets a
+    # suffix, and it is not required.
+    #
+    # The condition is written `!=` first on purpose: in a GitHub
+    # expression the empty string is FALSY, so `cond && '' || other`
+    # always yields `other`. The empty string has to be the final
+    # operand. Same shape as the macOS job below.
+    name: "Linux: ${{ matrix.senzingsdk-version }}${{ matrix.os != 'ubuntu-latest' && format(' ({0})', matrix.os) || '' }}"
     permissions:
       contents: read
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
         senzingsdk-version: [production-v4, staging-v4, "4.2.1", "4.3.2"]
+        os: [ubuntu-latest]
+        include:
+          # ubuntu-latest resolves to EITHER 24.04 or 26.04 while the rollout
+          # is in progress -- this repository's own CI ran green on 24.04 on
+          # 2026-11-02 while the fleet was hanging on 26.04. So ubuntu-latest
+          # cannot be relied on to exercise sudo-rs, and one leg is pinned to
+          # the image where #68 reproduces. Remove the pin when ubuntu-latest
+          # is 26.04 everywhere; keep it if the two ever diverge again.
+          - senzingsdk-version: production-v4
+            os: ubuntu-26.04
 
     steps:
       - name: Checkout repository
@@ -115,6 +135,9 @@ jobs:
           private-key: ${{ secrets.SENZINGSDK_STAGING_APP_KEY }}
           owner: senzing-factory
           repositories: homebrew-senzingsdk-staging
+          # The token only reads the tap; do not take the installation's
+          # whole permission set (zizmor github-app).
+          permission-contents: read
         continue-on-error: ${{ github.event.pull_request.head.repo.fork == true }}
 
       - name: Warn when token unavailable (fork PR)
@@ -197,6 +220,9 @@ jobs:
           private-key: ${{ secrets.SENZINGSDK_STAGING_APP_KEY }}
           owner: senzing-factory
           repositories: scoop-senzingsdk-staging
+          # The token only reads the tap; do not take the installation's
+          # whole permission set (zizmor github-app).
+          permission-contents: read
         continue-on-error: ${{ github.event.pull_request.head.repo.fork == true }}
 
       - name: Warn when token unavailable (fork PR)

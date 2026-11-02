@@ -176,6 +176,14 @@ install-senzing-repository() {
 ############################################
 install-senzingsdk() {
 
+  # FAIL BEFORE APT RUNS, not during it. Without this variable the package's
+  # install script waits for EULA input, and because the apt call redirects to
+  # /dev/null the job hangs to its timeout with an empty log -- 30 minutes of
+  # runner time and no clue. The action always sets it (linux/action.yaml), so
+  # this fires only when the script is run directly or a future change drops
+  # that env block. #68.
+  : "${SENZING_ACCEPT_EULA:?must be set; the package install waits for EULA input without it}"
+
   # Pin all senzing packages to the specific version if semver, otherwise major version
   if [[ $SENZING_INSTALL_VERSION =~ $REGEX_SEM_VER ]]; then
     restrict-package-versions "${SENZING_INSTALL_VERSION}*"
@@ -186,9 +194,19 @@ install-senzingsdk() {
   fi
   echo "[INFO] sudo apt list | grep senzing | grep -v repo"
   sudo apt list | grep senzing | grep -v repo
-  echo "[INFO] sudo --preserve-env apt-get -y -qq install $SENZING_PACKAGES > /dev/null"
+  # NAME THE VARIABLE, NEVER a bare `--preserve-env`. Ubuntu 26.04 ships
+  # sudo-rs, which does not support preserving the whole environment: it logs
+  # "preserving the entire environment is not supported, '--preserve-env' is
+  # ignored" and drops it. SENZING_ACCEPT_EULA then never reaches the
+  # package's install script, which waits for EULA input -- and because this
+  # line redirects to /dev/null, the job hangs to its timeout with nothing in
+  # the log to say why. `sudo VAR=value cmd` works on classic sudo and on
+  # sudo-rs. See senzing-factory/github-action-install-senzing-sdk#68.
+  echo "[INFO] sudo SENZING_ACCEPT_EULA=... apt-get -y -qq install $SENZING_PACKAGES"
   # shellcheck disable=SC2086
-  sudo --preserve-env apt-get -y -qq install $SENZING_PACKAGES > /dev/null
+  sudo SENZING_ACCEPT_EULA="$SENZING_ACCEPT_EULA" \
+    DEBIAN_FRONTEND=noninteractive \
+    apt-get -y -qq install $SENZING_PACKAGES > /dev/null
 
 }
 
