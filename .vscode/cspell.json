@@ -25,7 +25,8 @@
     "shellcheck",
     "stackoverflow",
     "subactions",
-    "TARGETDIR"
+    "TARGETDIR",
+    "zizmor"
   ],
   "ignorePaths": [".git/**"]
 }

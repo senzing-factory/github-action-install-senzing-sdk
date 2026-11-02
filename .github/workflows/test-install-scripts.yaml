@@ -31,7 +31,17 @@ jobs:
         run: bats tests/
 
   test-linux:
-    name: "Linux: ${{ matrix.senzingsdk-version }} (${{ matrix.os }})"
+    # KEEP THE ubuntu-latest LEGS NAMED EXACTLY AS BEFORE. These job names
+    # are the required status checks on main; renaming them orphans the
+    # branch rule, which then hangs every pull request on "Expected --
+    # Waiting for status to be reported". Only the pinned leg gets a
+    # suffix, and it is not required.
+    #
+    # The condition is written `!=` first on purpose: in a GitHub
+    # expression the empty string is FALSY, so `cond && '' || other`
+    # always yields `other`. The empty string has to be the final
+    # operand. Same shape as the macOS job below.
+    name: "Linux: ${{ matrix.senzingsdk-version }}${{ matrix.os != 'ubuntu-latest' && format(' ({0})', matrix.os) || '' }}"
     permissions:
       contents: read
     runs-on: ${{ matrix.os }}
