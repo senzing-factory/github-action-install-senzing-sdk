@@ -1,0 +1,18 @@
+# actionlint configuration.
+#
+# NOTE THE EXTENSION: super-linter's GITHUB_ACTIONS_CONFIG_FILE defaults to
+# `actionlint.yml`. A file named `actionlint.yaml` in this directory is never
+# read, and nothing reports that it was skipped.
+
+# Runner labels actionlint does not yet know about.
+#
+# `ubuntu-26.04` is a real GitHub-hosted image -- actions/runner-images has
+# been publishing it since at least ubuntu26/20261026.180, and `ubuntu-latest`
+# is mid-rollout onto it. actionlint's label list simply lags the image
+# releases, so without this it reports a valid runner as unknown.
+#
+# This teaches actionlint one label. It does NOT disable the check: an actual
+# typo in a runs-on value is still an error.
+self-hosted-runner:
+  labels:
+    - ubuntu-26.04

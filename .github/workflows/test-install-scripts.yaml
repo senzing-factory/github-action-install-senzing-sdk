@@ -125,6 +125,9 @@ jobs:
           private-key: ${{ secrets.SENZINGSDK_STAGING_APP_KEY }}
           owner: senzing-factory
           repositories: homebrew-senzingsdk-staging
+          # The token only reads the tap; do not take the installation's
+          # whole permission set (zizmor github-app).
+          permission-contents: read
         continue-on-error: ${{ github.event.pull_request.head.repo.fork == true }}
 
       - name: Warn when token unavailable (fork PR)
@@ -207,6 +210,9 @@ jobs:
           private-key: ${{ secrets.SENZINGSDK_STAGING_APP_KEY }}
           owner: senzing-factory
           repositories: scoop-senzingsdk-staging
+          # The token only reads the tap; do not take the installation's
+          # whole permission set (zizmor github-app).
+          permission-contents: read
         continue-on-error: ${{ github.event.pull_request.head.repo.fork == true }}
 
       - name: Warn when token unavailable (fork PR)

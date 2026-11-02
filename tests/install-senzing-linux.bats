@@ -17,7 +17,7 @@ bats_require_minimum_version 1.5.0
 SCRIPT="${BATS_TEST_DIRNAME}/../linux/install-senzing.sh"
 
 @test "the install command names SENZING_ACCEPT_EULA explicitly" {
-  run grep -c 'sudo SENZING_ACCEPT_EULA="\$SENZING_ACCEPT_EULA"' "$SCRIPT"
+  run grep -c -F 'sudo SENZING_ACCEPT_EULA=' "$SCRIPT"
   [ "$status" -eq 0 ]
   [ "$output" -ge 1 ]
 }
@@ -40,7 +40,7 @@ SCRIPT="${BATS_TEST_DIRNAME}/../linux/install-senzing.sh"
 }
 
 @test "the script still installs the packages it was asked for" {
-  run grep -c 'apt-get -y -qq install \$SENZING_PACKAGES' "$SCRIPT"
+  run grep -c "apt-get -y -qq install \$SENZING_PACKAGES" "$SCRIPT"
   [ "$status" -eq 0 ]
   [ "$output" -ge 1 ]
 }
@@ -49,7 +49,7 @@ SCRIPT="${BATS_TEST_DIRNAME}/../linux/install-senzing.sh"
   # A hang with an empty log is the defect; an immediate named error is the
   # fix. The guard must sit BEFORE the apt call, or it guards nothing.
   guard=$(grep -n 'SENZING_ACCEPT_EULA:?' "$SCRIPT" | cut -d: -f1)
-  apt=$(grep -n 'apt-get -y -qq install \$SENZING_PACKAGES' "$SCRIPT" | tail -1 | cut -d: -f1)
+  apt=$(grep -n "apt-get -y -qq install \$SENZING_PACKAGES" "$SCRIPT" | tail -1 | cut -d: -f1)
   [ -n "$guard" ]
   [ -n "$apt" ]
   [ "$guard" -lt "$apt" ]
