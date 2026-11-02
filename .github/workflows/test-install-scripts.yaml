@@ -31,15 +31,25 @@ jobs:
         run: bats tests/
 
   test-linux:
-    name: "Linux: ${{ matrix.senzingsdk-version }}"
+    name: "Linux: ${{ matrix.senzingsdk-version }} (${{ matrix.os }})"
     permissions:
       contents: read
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
         senzingsdk-version: [production-v4, staging-v4, "4.2.1", "4.3.2"]
+        os: [ubuntu-latest]
+        include:
+          # ubuntu-latest resolves to EITHER 24.04 or 26.04 while the rollout
+          # is in progress -- this repository's own CI ran green on 24.04 on
+          # 2026-11-02 while the fleet was hanging on 26.04. So ubuntu-latest
+          # cannot be relied on to exercise sudo-rs, and one leg is pinned to
+          # the image where #68 reproduces. Remove the pin when ubuntu-latest
+          # is 26.04 everywhere; keep it if the two ever diverge again.
+          - senzingsdk-version: production-v4
+            os: ubuntu-26.04
 
     steps:
       - name: Checkout repository
